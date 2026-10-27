@@ -14,6 +14,7 @@
  * host side is "qemu/touch.py stacks NAME"). F11 is five fingers on the screen for as long as it
  * is held, which is how the way out in redwood_input.c is tried ("qemu/touch.py key fivefingers 2000").
  */
+#include <pexpert/hackios_platform.h>
 #include <kern/clock.h>
 #include <kern/thread_call.h>
 #include <libkern/libkern.h>
@@ -333,6 +334,9 @@ input_attach(struct input_device *d, int slot)
 void
 redwood_virtio_input_init(void)
 {
+	if (!hackios_platform_allows(HACKIOS_CAP_VIRTIO_MMIO)) {
+		return;
+	}
 	uint32_t enabled = 0;
 	vm_offset_t bus;
 

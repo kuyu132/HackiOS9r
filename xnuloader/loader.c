@@ -10,6 +10,7 @@
  *   - exits boot services, turns the MMU off and jumps to the kernel entry
  */
 #include "efi.h"
+#include "diagnostics.h"
 #include "identity.h"         /* who iOS shall think we are: from the iPhone's own device tree (mkidentity.py) */
 
 /* ------------------------------------------------------------------------ */
@@ -66,6 +67,12 @@ struct boot_args {
 	uint64_t memSizeActual;
 };
 
+/* Keep the offline boot contract generator tied to the arm64 ABI. */
+_Static_assert(sizeof(struct boot_args) == 736, "arm64 boot_args size");
+_Static_assert(__builtin_offsetof(struct boot_args, deviceTreeP) == 96, "arm64 ADT pointer offset");
+_Static_assert(__builtin_offsetof(struct boot_args, commandLine) == 108, "arm64 command line offset");
+_Static_assert(__builtin_offsetof(struct boot_args, bootFlags) == 720, "arm64 flags offset");
+
 #define MH_MAGIC_64      0xFEEDFACFu
 #define LC_SEGMENT_64    0x19
 #define LC_UNIXTHREAD    0x5
@@ -85,8 +92,7 @@ static efi_system_table *ST;
 static efi_boot_services *BS;
 static efi_handle IMAGE;
 
-static char log_buf[32768];
-static uint32_t log_len;
+static struct loader_log_buffer loader_log;
 
 void *
 memset(void *dst, int c, size_t n)
@@ -170,21 +176,28 @@ str_eq(const char *a, const char *b)
 static int screen_quiet;
 
 static void
-put_char(char c)
+console_char(char c)
 {
 	char16 w[3] = { 0, 0, 0 };
-
-	if (log_len < sizeof(log_buf) - 1) {
-		log_buf[log_len++] = c;
-	}
 	if (ST->con_out != NULL && !screen_quiet) {
-		if (c == '\n') {
-			w[0] = '\r', w[1] = '\n';
-		} else {
-			w[0] = (char16)c;
-		}
+		if (c == '\n') w[0] = '\r', w[1] = '\n';
+		else w[0] = (char16)c;
 		ST->con_out->output_string(ST->con_out, w);
 	}
+}
+
+static void
+put_char(char c)
+{
+	loader_log_put(&loader_log, c);
+	console_char(c);
+}
+
+static void
+log_emit(void *ctx, char c)
+{
+	(void)ctx;
+	put_char(c);
 }
 
 /* printf subset: %s %x %d (64-bit values), %% */
@@ -193,33 +206,7 @@ print(const char *fmt, ...)
 {
 	__builtin_va_list ap;
 	__builtin_va_start(ap, fmt);
-	for (; *fmt; fmt++) {
-		if (*fmt != '%') {
-			put_char(*fmt);
-			continue;
-		}
-		fmt++;
-		if (*fmt == 's') {
-			const char *s = __builtin_va_arg(ap, const char *);
-			while (*s) {
-				put_char(*s++);
-			}
-		} else if (*fmt == 'x' || *fmt == 'd') {
-			uint64_t v = __builtin_va_arg(ap, uint64_t);
-			unsigned base = (*fmt == 'x') ? 16 : 10;
-			char tmp[24];
-			int i = 0;
-			do {
-				tmp[i++] = "0123456789abcdef"[v % base];
-				v /= base;
-			} while (v);
-			while (i) {
-				put_char(tmp[--i]);
-			}
-		} else {
-			put_char(*fmt);
-		}
-	}
+	loader_vformat(log_emit, NULL, fmt, ap);
 	__builtin_va_end(ap);
 }
 
@@ -257,6 +244,10 @@ clean_dcache(uint64_t start, uint64_t end)
 static efi_block_io *
 find_log_partition(void)
 {
+#ifdef HACKIOS_LEMONADES_PROBE
+	/* A new board must never inherit redwood's raw logdump writes. */
+	return NULL;
+#endif
 	static const efi_guid part_guid = EFI_PARTITION_INFO_GUID;
 	static const efi_guid blk_guid = EFI_BLOCK_IO_GUID;
 	static const char16 want[] = LOG_PARTITION;
@@ -298,16 +289,19 @@ static char out_buf[2 * 1024 * 1024];
 static uint8_t block_buffer[BLOCK_BUFFER_SIZE] __attribute__((aligned(0x2000)));
 static const char *staged_data = out_buf;   /* what "upload" sends: normally the log in out_buf */
 static uint64_t staged_len;
+/* Retain the composed return/panic snapshot even when an upload switches to
+ * a screenshot. Cleared by a new composition; never points into kernel RAM. */
+static uint64_t completed_log_len;
 
 static void
 compose_logs(const char *klog, uint64_t klog_len)
 {
 	static const char sep[] = "\n== KERNEL LOG ==\n", end[] = "\n== END OF LOG ==\n";
-	uint64_t n = log_len;
+	uint64_t n;
 
 	staged_data = out_buf;
 	memset(out_buf, 0, sizeof(out_buf));
-	memcpy(out_buf, log_buf, log_len);
+	n = loader_log_copy(&loader_log, out_buf, sizeof(out_buf));
 	if (klog != NULL) {
 		if (klog_len > sizeof(out_buf) - n - 8192) {
 			klog_len = sizeof(out_buf) - n - 8192;
@@ -320,6 +314,19 @@ compose_logs(const char *klog, uint64_t klog_len)
 		n += sizeof(end) - 1;
 	}
 	staged_len = n;
+	completed_log_len = klog != NULL ? n : 0;
+}
+
+/* A repeated oem log after return must not erase the kernel's panic log. */
+static void
+stage_idle_logs(void)
+{
+	if (completed_log_len) {
+		staged_data = out_buf;
+		staged_len = completed_log_len;
+	} else {
+		compose_logs(NULL, 0);
+	}
 }
 
 static int hc_list_is_uefis(void);
@@ -336,11 +343,11 @@ write_logs(const char *klog, uint64_t klog_len)
 	if (bio == NULL) {
 		/* No log partition (QEMU): echo the returned kernel log on the console instead. */
 		if (klog != NULL) {
-			print("\n== KERNEL LOG ==\n");
+			for (const char *s = "\n== KERNEL LOG ==\n"; *s; s++) console_char(*s);
 			for (uint64_t i = 0; i < klog_len; i++) {
-				put_char(klog[i]);
+				console_char(klog[i]);
 			}
-			print("\n== END OF LOG ==\n");
+			for (const char *s = "\n== END OF LOG ==\n"; *s; s++) console_char(*s);
 		}
 		return;
 	}
@@ -553,14 +560,27 @@ static const struct platform platform_redwood = {
 	.fb_base = 0xE1000000,
 };
 
+#ifdef HACKIOS_LEMONADES_PROBE
+/* SM8250: kona.dtsi CPU/GIC nodes. See docs/ONEPLUS-9R.md for pinned sources.
+ * No framebuffer-address detection: addresses are not unique device identities.
+ * This target only probes UEFI; these kernel parameters are not boot-validated. */
+static const struct platform platform_lemonades = {
+	.name = "lemonades", .io_base = 0x00400000, .io_size = 0x3FC00000,
+	.gic_dist = 0x17A00000, .gic_redist = 0x17A60000,
+	.cores = 8, .core_shift = 8, .small_cores = 0x0f,
+};
+#endif
+
 /*
  * The devices the loader knows, told apart by the framebuffer base their UEFI reports. A port to another
  * device adds its description here (common/new-device.sh writes a starting point, docs/PORTING.md says
  * where each value comes from); a display that matches none is QEMU's ramfb.
  */
+#ifndef HACKIOS_LEMONADES_PROBE
 static const struct platform *const platforms[] = {
 	&platform_redwood,
 };
+#endif
 
 /* ------------------------------------------------------------------------ */
 
@@ -2623,16 +2643,7 @@ static char last_result[64] = "idle";
 static void
 set_result(const char *what, uint64_t a, uint64_t b)
 {
-	uint32_t saved = log_len;
-	uint32_t start = log_len;
-	print("%s %d %x", what, a, b);
-	uint32_t n = log_len - start;
-	if (n > sizeof(last_result) - 1) {
-		n = sizeof(last_result) - 1;
-	}
-	memcpy(last_result, log_buf + start, n);
-	last_result[n] = 0;
-	log_len = saved;
+	loader_format(last_result, sizeof(last_result), "%s %d %x", what, a, b);
 }
 
 /* Every range of the firmware's memory map of 1 MB or more, and the total of each type. */
@@ -2734,6 +2745,10 @@ static int starts_with(const char *s, const char *prefix);
 static int
 run_kernel(int have_checkpoint, uint64_t checkpoint)
 {
+#ifdef HACKIOS_LEMONADES_PROBE
+	print("lemonades: kernel handoff is not enabled in the probe build\n");
+	return 0;
+#endif
 	static uint8_t map_buf[65536];
 	uint64_t map_size, map_key, desc_size;
 	uint32_t desc_ver;
@@ -3053,6 +3068,8 @@ run_kernel(int have_checkpoint, uint64_t checkpoint)
 	dt_prop_u32(&w, "#size-cells", 2);
 
 	dt_begin(&w, "chosen");
+	/* Hardware matching must never use the emulated iPhone identity or SoC base. */
+	dt_prop_str(&w, "hackios,board", plat->name);
 	dt_prop(&w, "random-seed", seed, sizeof(seed));
 	dt_prop_u64(&w, "dram-base", phys_base);
 	dt_prop_u64(&w, "dram-size", win_size);
@@ -3459,6 +3476,21 @@ usb_dummy_notify(void *event, void *ctx)
 {
 }
 
+#ifdef HACKIOS_LEMONADES_PROBE
+#include "../common/lemonades/protocol_watch.h"
+static void
+lemonades_report_protocols(void)
+{
+	print("LEMONADES protocol snapshot: presence only, not hardware readiness\n");
+	for (unsigned i = 0; i < sizeof(lemonades_protocol_watch) / sizeof(lemonades_protocol_watch[0]); i++) {
+		void *interface = NULL;
+		efi_status status = BS->locate_protocol(&lemonades_protocol_watch[i].guid, NULL, &interface);
+		print("protocol %s status=%x interface=%x\n", lemonades_protocol_watch[i].name,
+		    status, (uint64_t)(uintptr_t)interface);
+	}
+}
+#endif
+
 static int
 usb_start(void)
 {
@@ -3479,6 +3511,20 @@ usb_start(void)
 		print("usb: device protocol not found\n");
 		return 0;
 	}
+#ifdef HACKIOS_LEMONADES_PROBE
+	/* Verified against both 9R H.30 stock UsbDeviceDxe interface tables.
+	 * Do not dereference StartEx at the end of an unknown revision's table. */
+	if (USB == NULL || USB->revision != 0x10000001) {
+		print("usb: unsupported device protocol revision\n");
+		return 0;
+	}
+	print("usb: verified table revision=%x\n", USB->revision);
+	if (USB->start_ex == NULL || USB->send == NULL || USB->handle_event == NULL ||
+	    USB->allocate_transfer_buffer == NULL || USB->free_transfer_buffer == NULL) {
+		print("usb: incomplete device protocol interface\n");
+		return 0;
+	}
+#endif
 	set.device_descriptor = usb_dev_desc;
 	set.descriptors = &cfg;
 	set.ss_device_descriptor = usb_ss_dev_desc;
@@ -3605,6 +3651,16 @@ fb_command(char *cmd)
 {
 	int busy = running_live != NULL;
 
+#ifdef HACKIOS_LEMONADES_PROBE
+	/* No uploads into fixed RAM, kernel execution, UFS, or watchdog tests yet. */
+	if (!starts_with(cmd, "getvar:") && !str_eq(cmd, "upload") &&
+	    !str_eq(cmd, "oem log") && !str_eq(cmd, "oem memmap") &&
+	    !str_eq(cmd, "oem screenshot") && !str_eq(cmd, "reboot")) {
+		fb_reply("FAIL", "lemonades probe: command disabled");
+		return;
+	}
+#endif
+
 	{
 		if (busy && (starts_with(cmd, "oem ramdisk") || starts_with(cmd, "download:") || starts_with(cmd, "oem run") ||
 		    starts_with(cmd, "oem selftest") || starts_with(cmd, "oem hang") || starts_with(cmd, "oem recording") ||
@@ -3620,19 +3676,30 @@ fb_command(char *cmd)
 			const char *var = cmd + 7;
 			if (str_eq(var, "product")) {
 				fb_reply("OKAY", "xnuloader");
+			} else if (str_eq(var, "platform")) {
+				fb_reply("OKAY", PLAT->name);
 			} else if (str_eq(var, "version")) {
-				fb_reply("OKAY", "0.5");
+				fb_reply("OKAY", "0.6");
 			} else if (str_eq(var, "max-download-size")) {
+#ifdef HACKIOS_LEMONADES_PROBE
+				fb_reply("OKAY", "0x00000000");
+#else
 				fb_reply("OKAY", download_to_ramdisk ? "0xffffffff" : "0x03f00000");
+#endif
+			} else if (str_eq(var, "log-format")) {
+				fb_reply("OKAY", "head-tail-v1");
+			} else if (str_eq(var, "log-dropped")) {
+				char count[24];
+				loader_format(count, sizeof(count), "%d", loader_log.dropped);
+				fb_reply("OKAY", count);
 			} else if (str_eq(var, "result")) {
 				fb_reply("OKAY", last_result);
 			} else if (str_eq(var, "screen") && SCREEN.base != 0) {
 				/* width height bytes-per-row */
-				uint32_t mark = log_len;
-				print("%d %d %d", (uint64_t)SCREEN.width, (uint64_t)SCREEN.height, (uint64_t)SCREEN.stride);
-				log_buf[log_len] = 0;
-				fb_reply("OKAY", log_buf + mark);
-				log_len = mark;
+				char geometry[64];
+				loader_format(geometry, sizeof(geometry), "%d %d %d", (uint64_t)SCREEN.width,
+				    (uint64_t)SCREEN.height, (uint64_t)SCREEN.stride);
+				fb_reply("OKAY", geometry);
 			} else {
 				fb_reply("OKAY", "");
 			}
@@ -3646,7 +3713,8 @@ fb_command(char *cmd)
 				return;
 			}
 			parse_payload(&pi, 0);
-			log_len = 0;
+			loader_log_reset(&loader_log);
+			completed_log_len = 0;
 			if (!choose_window(&pi) || win_size <= RESIDENT_RD_OFFSET + RESIDENT_RD_RESERVE) {
 				fb_reply("FAIL", "no memory window");
 				return;
@@ -3741,7 +3809,8 @@ fb_command(char *cmd)
 
 			set_result("running", cp, 0);
 			fb_reply("OKAY", "");
-			log_len = 0;
+			loader_log_reset(&loader_log);
+			completed_log_len = 0;
 			print("== XNULOADER run (usb) ==\n");
 			if (!run_kernel(have_cp, cp)) {
 				set_result("not-started", 0, 0);
@@ -3759,7 +3828,7 @@ fb_command(char *cmd)
 			if (busy) {
 				compose_live_log(running_live, running_slide);
 			} else {
-				compose_logs(NULL, 0);
+				stage_idle_logs();
 			}
 			fb_reply("OKAY", "");
 		} else if (starts_with(cmd, "reboot") || starts_with(cmd, "oem reboot")) {
@@ -3844,6 +3913,7 @@ usb_command_loop(void)
  * is simply replaced). In QEMU the display is then exactly what iOS expects; on the real phone
  * the kernel's display driver scales that picture to the panel.
  */
+#ifndef HACKIOS_LEMONADES_PROBE
 #define PHONE_WIDTH     1125            /* the screen of the iPhone X, whose identity we carry */
 #define PHONE_HEIGHT    2436
 /* HACKIOS_RAMFB_HEIGHT: QEMU's ramfb refuses a mode taller than 2048 (bochs-vbe's
@@ -3924,6 +3994,8 @@ ramfb_phone_screen(void)
 	SCREEN.stride = PHONE_WIDTH * 4;
 }
 
+#endif /* !HACKIOS_LEMONADES_PROBE: never access QEMU fw_cfg on a phone */
+
 efi_status EFIAPI
 efi_main(efi_handle image, efi_system_table *st)
 {
@@ -3940,6 +4012,9 @@ efi_main(efi_handle image, efi_system_table *st)
 	    READ_SYSREG(ID_AA64MMFR0_EL1), READ_SYSREG(CNTFRQ_EL0), (uint64_t)(uintptr_t)&__ImageBase);
 
 	PLAT = &platform_qemu_virt;
+#ifdef HACKIOS_LEMONADES_PROBE
+	PLAT = &platform_lemonades;
+#endif
 	if (EFI_ERROR(BS->locate_protocol(&gop_guid, NULL, (void **)&GOP)) || GOP->mode == NULL ||
 	    GOP->mode->info == NULL || GOP->mode->fb_base == 0) {
 		GOP = NULL;                     /* no display (QEMU without -device ramfb) */
@@ -3948,14 +4023,38 @@ efi_main(efi_handle image, efi_system_table *st)
 		SCREEN.width = GOP->mode->info->width;
 		SCREEN.height = GOP->mode->info->height;
 		SCREEN.stride = GOP->mode->info->pixels_per_scanline * 4;
+#ifdef HACKIOS_LEMONADES_PROBE
+		/* Only expose a framebuffer that fits in the firmware's reported extent. */
+		if (SCREEN.width == 0 || SCREEN.height == 0 ||
+		    GOP->mode->info->pixels_per_scanline > 0x3fffffffU ||
+		    GOP->mode->info->pixels_per_scanline < SCREEN.width ||
+		    (uint64_t)SCREEN.stride * SCREEN.height > GOP->mode->fb_size) {
+			print("invalid GOP geometry; framebuffer capture disabled\n");
+			SCREEN.base = 0;
+		}
+#else
 		for (unsigned i = 0; i < sizeof(platforms) / sizeof(platforms[0]); i++)
 			if (platforms[i]->fb_base == SCREEN.base)
 				PLAT = platforms[i];
 		if (PLAT == &platform_qemu_virt)
 			ramfb_phone_screen();
+#endif
 		print("display %d x %d at %x\n", (uint64_t)SCREEN.width, (uint64_t)SCREEN.height, SCREEN.base);
 	}
 	print("platform %s\n", PLAT->name);
+
+#ifdef HACKIOS_LEMONADES_PROBE
+	print("LEMONADES PROBE: UEFI diagnostics only; kernel execution disabled\n");
+	print("MPIDR=%x; no fixed payload RAM or peripheral MMIO used\n", READ_SYSREG(MPIDR_EL1));
+	print_memory_map();
+	lemonades_report_protocols();
+	if (usb_start()) {
+		compose_logs(NULL, 0);
+		usb_command_loop();
+	}
+	print("LEMONADES PROBE: USB protocol unavailable; returning to UEFI\n");
+	return 0;
+#endif
 
 	install_exception_hook();
 	wdt_arm();

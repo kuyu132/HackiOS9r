@@ -46,6 +46,7 @@
  * is done for the rest of the run. At the run's end (and on a panic's way out) the chip goes back
  * into reset. Nothing is written anywhere but to the chip's registers and its RAM.
  */
+#include <pexpert/hackios_platform.h>
 #include <kern/clock.h>
 #include <kern/thread.h>
 #include <libkern/libkern.h>
@@ -977,6 +978,9 @@ haptic_thread(__unused void *parameter, __unused wait_result_t result)
 void
 redwood_haptic_init(void)
 {
+	if (!hackios_platform_allows(HACKIOS_CAP_REDWOOD_HW)) {
+		return;
+	}
 	thread_t thread;
 
 	if (!PE_parse_boot_argn("haptic", &level, sizeof(level)) || level == 0) {

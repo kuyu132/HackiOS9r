@@ -1,0 +1,13 @@
+{
+  "repository": "https://github.com/oosexgang/hackios-xnu-userland.git",
+  "commit": "a79ff0772a3454fd1ef127e181e5b3bce6c9ce18",
+  "files_sha256": {
+    "userland/src/hello.c": "8d52d36c02e980e26efb2fc71223627405509176540595d49f5a1b1d26a65f38",
+    "userland/src/inject.c": "7602d0ce95eb32e69ba54717d0ca680354269c2446d7846fc661b656dd99ab9c",
+    "userland/src/init.c": "df70a9e227274ad90206bb91d888e292ddbce3a75d6cf014232a6ab37a3d5686",
+    "userland/build.sh": "71e311d72936b92c2643bf8141f4ddb1cdbe3e6b880e2388b139c46a15754427",
+    "LICENSE": "f6cfd96f40e34d3679e037e1192d24a3794e41aa196ca6df76c0826ed6cd60c5"
+  },
+  "baseline_kernel_sha256": "9239d4adb7a2c433d7ed5729b47b63acc5281af73d8a81640ef3c678c8afd26c",
+  "scope": "Source reference and static hello smoke; full iOS image not imported or validated"
+}

@@ -33,6 +33,7 @@
  * as many bytes as each image has: tools/ufs-survey.py compares those with the images and with
  * what the loader read itself before the kernel started.
  */
+#include <pexpert/hackios_platform.h>
 #include <kern/clock.h>
 #include <kern/locks.h>
 #include <kern/thread.h>
@@ -1441,6 +1442,9 @@ SYSCTL_QUAD(_kern_redwood, OID_AUTO, ufs_native_fallbacks, CTLFLAG_RD | CTLFLAG_
 void
 redwood_ufs_init(void)
 {
+	if (!hackios_platform_allows(HACKIOS_CAP_REDWOOD_HW)) {
+		return;
+	}
 	uint64_t pa = 0, buffer_pa;
 	uint32_t check = 0, made = 0;
 	vm_offset_t base;

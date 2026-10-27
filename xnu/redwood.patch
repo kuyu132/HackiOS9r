@@ -8,8 +8,8 @@ index e78d8476c346..03fc3ff646b8 100644
  
 -export SYSCTL_HW_PHYSICALCPU := $(shell /usr/sbin/sysctl -n hw.physicalcpu)
 -export SYSCTL_HW_LOGICALCPU  := $(shell /usr/sbin/sysctl -n hw.logicalcpu)
-+export SYSCTL_HW_PHYSICALCPU := $(shell nproc)
-+export SYSCTL_HW_LOGICALCPU  := $(shell nproc)
++export SYSCTL_HW_PHYSICALCPU := $(shell if [ "$$(uname -s)" = Darwin ]; then /usr/sbin/sysctl -n hw.physicalcpu; else nproc; fi)
++export SYSCTL_HW_LOGICALCPU  := $(shell if [ "$$(uname -s)" = Darwin ]; then /usr/sbin/sysctl -n hw.logicalcpu; else nproc; fi)
  MAKEJOBS := --jobs=$(shell expr $(SYSCTL_HW_LOGICALCPU) + 1)
  
  default: install
@@ -19,8 +19,8 @@ index e78d8476c346..03fc3ff646b8 100644
  
 -export SYSCTL_HW_PHYSICALCPU := $(shell /usr/sbin/sysctl -n hw.physicalcpu)
 -export SYSCTL_HW_LOGICALCPU  := $(shell /usr/sbin/sysctl -n hw.logicalcpu)
-+export SYSCTL_HW_PHYSICALCPU := $(shell nproc)
-+export SYSCTL_HW_LOGICALCPU  := $(shell nproc)
++export SYSCTL_HW_PHYSICALCPU := $(shell if [ "$$(uname -s)" = Darwin ]; then /usr/sbin/sysctl -n hw.physicalcpu; else nproc; fi)
++export SYSCTL_HW_LOGICALCPU  := $(shell if [ "$$(uname -s)" = Darwin ]; then /usr/sbin/sysctl -n hw.logicalcpu; else nproc; fi)
  MAKEJOBS := --jobs=$(shell expr $(SYSCTL_HW_LOGICALCPU) + 1)
  
  default: install
@@ -30,8 +30,8 @@ index e78d8476c346..03fc3ff646b8 100644
  #
 -export SYSCTL_HW_PHYSICALCPU := $(shell /usr/sbin/sysctl -n hw.physicalcpu)
 -export SYSCTL_HW_LOGICALCPU  := $(shell /usr/sbin/sysctl -n hw.logicalcpu)
-+export SYSCTL_HW_PHYSICALCPU := $(shell nproc)
-+export SYSCTL_HW_LOGICALCPU  := $(shell nproc)
++export SYSCTL_HW_PHYSICALCPU := $(shell if [ "$$(uname -s)" = Darwin ]; then /usr/sbin/sysctl -n hw.physicalcpu; else nproc; fi)
++export SYSCTL_HW_LOGICALCPU  := $(shell if [ "$$(uname -s)" = Darwin ]; then /usr/sbin/sysctl -n hw.logicalcpu; else nproc; fi)
  MAKEJOBS := --jobs=$(shell expr $(SYSCTL_HW_LOGICALCPU) + 1)
  
  TOP_TARGETS = \
@@ -65,11 +65,19 @@ diff --git a/bsd/conf/files b/bsd/conf/files
 index 44274016a4cf..9cd24b42caca 100644
 --- a/bsd/conf/files
 +++ b/bsd/conf/files
-@@ -109,6 +109,37 @@ bsd/dev/munge.c 			optional config_requires_u32_munging
+@@ -109,6 +109,45 @@ bsd/dev/munge.c 			optional config_requires_u32_munging
  bsd/dev/unix_startup.c			standard
  
  bsd/dev/monotonic.c optional monotonic
 +bsd/dev/redwood_input.c		standard
++bsd/dev/lemonades/s3908_report.c standard
++bsd/dev/lemonades/s3908_input.c standard
++bsd/dev/lemonades/s3908_tcm.c standard
++bsd/dev/lemonades/s3908_session.c standard
++bsd/dev/lemonades/s3908_geni.c standard
++bsd/dev/lemonades/s3908_transport.c standard
++bsd/dev/lemonades_touch.c standard
++bsd/dev/lemonades_touch_platform.c standard
 +bsd/dev/redwood_virtio_input.c	standard
 +bsd/dev/redwood_goodix.c	standard
 +bsd/dev/redwood_buttons.c	standard
@@ -103,7 +111,7 @@ index 44274016a4cf..9cd24b42caca 100644
  bsd/dev/dev_perfmon.c optional config_perfmon
  
  bsd/libkern/crc32.c			standard
-@@ -155,6 +186,14 @@ bsd/miscfs/devfs/devfs_vfsops.c		optional devfs
+@@ -155,6 +190,14 @@ bsd/miscfs/devfs/devfs_vfsops.c		optional devfs
  bsd/miscfs/mockfs/mockfs_fsnode.c	optional mockfs
  bsd/miscfs/mockfs/mockfs_vfsops.c	optional mockfs
  bsd/miscfs/mockfs/mockfs_vnops.c	optional mockfs
@@ -118,7 +126,7 @@ index 44274016a4cf..9cd24b42caca 100644
  
  bsd/miscfs/routefs/routefs_ops.c	optional routefs
  
-@@ -361,6 +400,7 @@ bsd/security/audit/audit_syscalls.c		standard
+@@ -361,6 +403,7 @@ bsd/security/audit/audit_syscalls.c		standard
  bsd/security/audit/audit_worker.c		optional config_audit
  
  bsd/pthread/pthread_shims.c		standard
@@ -126,7 +134,7 @@ index 44274016a4cf..9cd24b42caca 100644
  bsd/pthread/pthread_priority.c		standard
  bsd/pthread/pthread_workqueue.c		standard
  
-@@ -383,6 +423,7 @@ bsd/kern/kern_debug.c			standard
+@@ -383,6 +426,7 @@ bsd/kern/kern_debug.c			standard
  bsd/kern/kern_symfile.c			standard
  bsd/kern/kern_descrip.c			standard
  bsd/kern/kern_guarded.c			standard
@@ -508,99 +516,6 @@ index 1d71c66629fb..3e1737c21b86 100644
  			    imgp->ip_vfs_context);
  
  			error = open1(imgp->ip_vfs_context, ndp,
-@@ -3094,10 +3154,16 @@ spawn_validate_persona(struct _posix_spawn_persona_info *px_persona)
- 	int error = 0;
- 	struct persona *persona = NULL;
- 
--	if (!IOCurrentTaskHasEntitlement( PERSONA_MGMT_ENTITLEMENT)) {
--		return EPERM;
--	}
--
-+	/*
-+	 * redwood: two of the three checks below cannot be passed in this port, and both stand in
-+	 * the way of something ordinary. The entitlement is one nobody carries here (nothing is
-+	 * signed, AMFI is a stub), and the persona is one nobody makes -- yet a package manager
-+	 * becomes root by asking for exactly this: Sileo spawns apt and dpkg into persona 99 with
-+	 * the uid it wants (its APTWrapper). Refused here, the spawn failed before the program was
-+	 * ever started, and the application waited for an answer that could not come. The check
-+	 * that still means something -- the size of the group list -- stays; see
-+	 * spawn_persona_adopt() below for what happens then.
-+	 */
- 	if (px_persona->pspi_flags & POSIX_SPAWN_PERSONA_GROUPS) {
- 		if (px_persona->pspi_ngroups > NGROUPS_MAX) {
- 			return EINVAL;
-@@ -3105,12 +3171,6 @@ spawn_validate_persona(struct _posix_spawn_persona_info *px_persona)
- 	}
- 
- 	persona = persona_lookup(px_persona->pspi_id);
--	if (!persona) {
--		error = ESRCH;
--		goto out;
--	}
--
--out:
- 	if (persona) {
- 		persona_put(persona);
- 	}
-@@ -3130,9 +3190,6 @@ spawn_persona_adopt(proc_t p, struct _posix_spawn_persona_info *px_persona)
- 	 * the kauth with a different UID/GID combo
- 	 */
- 	persona = persona_lookup(px_persona->pspi_id);
--	if (!persona) {
--		return ESRCH;
--	}
- 
- 	cred = kauth_cred_proc_ref(p);
- 
-@@ -3158,6 +3215,48 @@ spawn_persona_adopt(proc_t p, struct _posix_spawn_persona_info *px_persona)
- 		    px_persona->pspi_gmuid);
- 	}
- 
-+	if (persona == NULL) {
-+		/*
-+		 * redwood: there are no personas in this port -- nothing makes them, and
-+		 * kpersona_find_by_type() answers "no such process" to everyone who asks. iOS's own
-+		 * programs get along without them, but a package manager becomes root by way of one:
-+		 * Sileo asks posix_spawn for persona 99 with OVERRIDE and uid 0 (its APTWrapper), and
-+		 * that is how it runs apt and dpkg. With the persona missing the lookup failed, the
-+		 * whole spawn failed with ESRCH, and the application sat for ever waiting for an
-+		 * answer from a program that was never started. What the caller is after is the
-+		 * credential, not the persona, so the credential is what it gets: the uid, gid and
-+		 * groups it asked for, set on the process being spawned.
-+		 *
-+		 * The thread's own credential is not touched here: the thread running this is the
-+		 * parent's, and the new process gets its credential when its image is activated.
-+		 *
-+		 * And the count of processes per real uid follows, as persona_proc_adopt() keeps it:
-+		 * fork1() counted the new process under the parent's uid (mobile's), its exit takes
-+		 * it off under the one it has then (root's). Without that, every program Sileo ran as
-+		 * root took one away from root's count that had never been given -- and once Sileo's
-+		 * own mv, cp and rm ran at all, a few dozen of them brought root's count to nothing,
-+		 * and the next process of root's to exit panicked the kernel ("chgproccnt: lost user").
-+		 */
-+		__block kauth_cred_t new_cred = cred;
-+		__block uid_t old_ruid = KAUTH_UID_NONE;
-+		uid_t new_ruid = kauth_cred_getruid(cred);
-+
-+		(void)proc_update_label(p, true, ^kauth_cred_t (kauth_cred_t cur_cred) {
-+			old_ruid = kauth_cred_getruid(cur_cred);
-+			if (new_cred != cur_cred) {
-+			        kauth_cred_ref(new_cred);
-+			        kauth_cred_unref(&cur_cred);
-+			}
-+			return new_cred;
-+		});
-+		kauth_cred_unref(&cred);
-+		if (old_ruid != KAUTH_UID_NONE && old_ruid != new_ruid) {
-+			(void)chgproccnt(new_ruid, 1);
-+			(void)chgproccnt(old_ruid, -1);
-+		}
-+		return 0;
-+	}
-+
- 	ret = persona_proc_adopt(p, persona, cred);
- 
- 	kauth_cred_unref(&cred);
 @@ -5586,10 +5685,75 @@ bad:
   * Note:	The argument and environment vectors are user space pointers
   *		to arrays of user space pointers.
@@ -1873,7 +1788,7 @@ index 0316792a3f42..bbef0a4b26d4 100644
  # $(warning VARIANT_CONFIGS is $(VARIANT_CONFIGS))
  
 -MEMORY_SIZE := $(shell /usr/sbin/sysctl -n hw.memsize)
-+MEMORY_SIZE := $(shell awk '/MemTotal/{printf "%d", $$2*1024}' /proc/meminfo)
++MEMORY_SIZE := $(shell if [ "$$(uname -s)" = Darwin ]; then /usr/sbin/sysctl -n hw.memsize; else awk '/MemTotal/{printf "%d", $$2*1024}' /proc/meminfo; fi)
  
  # Assume LTO scaling by default, unless it is being explicitly passed on the command-line
  LARGE_BUILD_FOOTPRINT := $(if $(BUILD_LTO),$(BUILD_LTO),1)
@@ -3233,3 +3148,15 @@ index 3ebc295117a3..de101eafc83b 100755
  def find_non_ascii(s):
      for c in s:
          if ord(c) >= 0x80: return True
+diff --git a/pexpert/pexpert/Makefile b/pexpert/pexpert/Makefile
+--- a/pexpert/pexpert/Makefile
++++ b/pexpert/pexpert/Makefile
+@@ -42,6 +42,7 @@
+ INSTALL_MI_DIR = pexpert
+
+ EXPORT_MI_LIST	= ${DATAFILES} \
++		    hackios_platform.h \
+-		    device_tree.h
++		    device_tree.h
+
+ EXPORT_MI_DIR = pexpert

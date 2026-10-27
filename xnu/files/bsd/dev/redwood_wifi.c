@@ -154,6 +154,7 @@
  * drivers/firmware/qcom_scm{,-smc}.c, drivers/spmi/spmi-pmic-arb.c,
  * drivers/regulator/qcom_spmi-regulator.c, drivers/pinctrl/qcom/pinctrl-msm.c.
  */
+#include <pexpert/hackios_platform.h>
 #include <kern/clock.h>
 #include <kern/kalloc.h>
 #include <kern/locks.h>
@@ -4262,6 +4263,9 @@ whole_thread(__unused void *parameter, __unused wait_result_t result)
 void
 redwood_wifi_init(void)
 {
+	if (!hackios_platform_allows(HACKIOS_CAP_REDWOOD_HW)) {
+		return;
+	}
 	uint32_t on = 0, back = 0, done = 0;
 	uint64_t size = 0;
 	thread_t thread;

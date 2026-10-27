@@ -12,6 +12,7 @@
  *
  * A kernel built without the object has the lx_start() at the end of this file, which says so.
  */
+#include <pexpert/hackios_platform.h>
 #include <kern/clock.h>
 #include <kern/kalloc.h>
 #include <kern/locks.h>
@@ -566,6 +567,7 @@ lx_transmit(__unused const unsigned char *frame, __unused unsigned long length)
 int
 redwood_lx_start(void)
 {
+	if (!hackios_platform_allows(HACKIOS_CAP_REDWOOD_HW)) return ENXIO;
 	return lx_start();
 }
 
@@ -578,5 +580,6 @@ redwood_lx_stop(void)
 int
 redwood_lx_prepare(void)
 {
+	if (!hackios_platform_allows(HACKIOS_CAP_REDWOOD_HW)) return ENXIO;
 	return lx_prepare();
 }

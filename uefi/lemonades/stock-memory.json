@@ -1,0 +1,626 @@
+{
+  "status": "stock-derived candidate, not hardware validated",
+  "firmware": "LE2101_14.0.0.2301(EX01)",
+  "region": "IND",
+  "xbl_sha256": "fd4919194d31473f84fb69d59775ffef8bb821a50254cf43f0bb6283d5bb784b",
+  "xbl_lp5_sha256": "c00cc3aa6f2a0adb3df35109d5d2e3f778ba16f471de44e197c58ce6143beac5",
+  "uefiplat_sha256": "bda60d665d04a9ebf3bc16e4af64b1221f4a43bbc23d4dfa05165dad1519b9c7",
+  "stock_regions": [
+    {
+      "name": "IPC SHM",
+      "address": 2153578496,
+      "size": 131072,
+      "attributes": [
+        "AddMem",
+        "SYS_MEM",
+        "SYS_MEM_CAP",
+        "BsData",
+        "WRITE_BACK_XN"
+      ],
+      "section": "MemoryMap"
+    },
+    {
+      "name": "MPSS EFS",
+      "address": 2153775104,
+      "size": 1048576,
+      "attributes": [
+        "AddMem",
+        "SYS_MEM",
+        "SYS_MEM_CAP",
+        "Reserv",
+        "WRITE_BACK_XN"
+      ],
+      "section": "MemoryMap"
+    },
+    {
+      "name": "BOOT INFO",
+      "address": 2154823680,
+      "size": 1048576,
+      "attributes": [
+        "AddMem",
+        "SYS_MEM",
+        "SYS_MEM_CAP",
+        "BsData",
+        "WRITE_BACK_XN"
+      ],
+      "section": "MemoryMap"
+    },
+    {
+      "name": "AOP CMD DB",
+      "address": 2156265472,
+      "size": 131072,
+      "attributes": [
+        "AddMem",
+        "MEM_RES",
+        "UNCACHEABLE",
+        "Reserv",
+        "UNCACHED_UNBUFFERED_XN"
+      ],
+      "section": "MemoryMap"
+    },
+    {
+      "name": "XBL Log Buffer",
+      "address": 2156412928,
+      "size": 65536,
+      "attributes": [
+        "AddMem",
+        "SYS_MEM",
+        "SYS_MEM_CAP",
+        "Reserv",
+        "WRITE_BACK_XN"
+      ],
+      "section": "MemoryMap"
+    },
+    {
+      "name": "SMEM",
+      "address": 2156920832,
+      "size": 2097152,
+      "attributes": [
+        "AddMem",
+        "MEM_RES",
+        "UNCACHEABLE",
+        "Reserv",
+        "UNCACHED_UNBUFFERED_XN"
+      ],
+      "section": "MemoryMap"
+    },
+    {
+      "name": "TZApps Reserved",
+      "address": 2185232384,
+      "size": 188743680,
+      "attributes": [
+        "HobOnlyNoCacheSetting",
+        "MEM_RES",
+        "UNCACHEABLE",
+        "Reserv",
+        "UNCACHED_UNBUFFERED_XN"
+      ],
+      "section": "MemoryMap"
+    },
+    {
+      "name": "PIL Reserved",
+      "address": 2376073216,
+      "size": 181403648,
+      "attributes": [
+        "AddMem",
+        "MEM_RES",
+        "UNCACHEABLE",
+        "Reserv",
+        "UNCACHED_UNBUFFERED_XN"
+      ],
+      "section": "MemoryMap"
+    },
+    {
+      "name": "DXE Heap",
+      "address": 2559574016,
+      "size": 53477376,
+      "attributes": [
+        "AddMem",
+        "SYS_MEM",
+        "SYS_MEM_CAP",
+        "Conv",
+        "WRITE_BACK_XN"
+      ],
+      "section": "MemoryMap"
+    },
+    {
+      "name": "Sched Heap",
+      "address": 2613051392,
+      "size": 4194304,
+      "attributes": [
+        "AddMem",
+        "SYS_MEM",
+        "SYS_MEM_CAP",
+        "BsData",
+        "WRITE_BACK_XN"
+      ],
+      "section": "MemoryMap"
+    },
+    {
+      "name": "Display Reserved",
+      "address": 2617245696,
+      "size": 37748736,
+      "attributes": [
+        "AddMem",
+        "MEM_RES",
+        "SYS_MEM_CAP",
+        "Reserv",
+        "WRITE_THROUGH_XN"
+      ],
+      "section": "MemoryMap"
+    },
+    {
+      "name": "DBI Dump",
+      "address": 2654994432,
+      "size": 15728640,
+      "attributes": [
+        "NoHob",
+        "MMAP_IO",
+        "INITIALIZED",
+        "Conv",
+        "UNCACHED_UNBUFFERED_XN"
+      ],
+      "section": "MemoryMap"
+    },
+    {
+      "name": "FV Region",
+      "address": 2675965952,
+      "size": 2097152,
+      "attributes": [
+        "AddMem",
+        "SYS_MEM",
+        "SYS_MEM_CAP",
+        "BsData",
+        "WRITE_BACK_XN"
+      ],
+      "section": "MemoryMap"
+    },
+    {
+      "name": "ABOOT FV",
+      "address": 2678063104,
+      "size": 2097152,
+      "attributes": [
+        "AddMem",
+        "SYS_MEM",
+        "SYS_MEM_CAP",
+        "Reserv",
+        "WRITE_BACK_XN"
+      ],
+      "section": "MemoryMap"
+    },
+    {
+      "name": "UEFI FD",
+      "address": 2680160256,
+      "size": 3145728,
+      "attributes": [
+        "AddMem",
+        "SYS_MEM",
+        "SYS_MEM_CAP",
+        "BsData",
+        "WRITE_BACK"
+      ],
+      "section": "MemoryMap"
+    },
+    {
+      "name": "SEC Heap",
+      "address": 2683305984,
+      "size": 573440,
+      "attributes": [
+        "AddMem",
+        "SYS_MEM",
+        "SYS_MEM_CAP",
+        "BsData",
+        "WRITE_BACK_XN"
+      ],
+      "section": "MemoryMap"
+    },
+    {
+      "name": "CPU Vectors",
+      "address": 2683879424,
+      "size": 4096,
+      "attributes": [
+        "AddMem",
+        "SYS_MEM",
+        "SYS_MEM_CAP",
+        "BsData",
+        "WRITE_BACK"
+      ],
+      "section": "MemoryMap"
+    },
+    {
+      "name": "MMU PageTables",
+      "address": 2683883520,
+      "size": 12288,
+      "attributes": [
+        "AddMem",
+        "SYS_MEM",
+        "SYS_MEM_CAP",
+        "BsData",
+        "WRITE_BACK_XN"
+      ],
+      "section": "MemoryMap"
+    },
+    {
+      "name": "UEFI Stack",
+      "address": 2683895808,
+      "size": 262144,
+      "attributes": [
+        "AddMem",
+        "SYS_MEM",
+        "SYS_MEM_CAP",
+        "BsData",
+        "WRITE_BACK_XN"
+      ],
+      "section": "MemoryMap"
+    },
+    {
+      "name": "Log Buffer",
+      "address": 2684317696,
+      "size": 32768,
+      "attributes": [
+        "AddMem",
+        "SYS_MEM",
+        "SYS_MEM_CAP",
+        "RtData",
+        "WRITE_BACK_XN"
+      ],
+      "section": "MemoryMap"
+    },
+    {
+      "name": "Info Blk",
+      "address": 2684350464,
+      "size": 4096,
+      "attributes": [
+        "AddMem",
+        "SYS_MEM",
+        "SYS_MEM_CAP",
+        "RtData",
+        "WRITE_BACK_XN"
+      ],
+      "section": "MemoryMap"
+    },
+    {
+      "name": "Kernel",
+      "address": 2684354560,
+      "size": 268435456,
+      "attributes": [
+        "AddMem",
+        "SYS_MEM",
+        "SYS_MEM_CAP",
+        "Reserv",
+        "WRITE_BACK_XN"
+      ],
+      "section": "MemoryMap"
+    },
+    {
+      "name": "ramoops",
+      "address": 2952790016,
+      "size": 4194304,
+      "attributes": [
+        "AddMem",
+        "SYS_MEM",
+        "SYS_MEM_CAP",
+        "Reserv",
+        "WRITE_BACK_XN"
+      ],
+      "section": "MemoryMap"
+    },
+    {
+      "name": "IMEM Base",
+      "address": 342360064,
+      "size": 262144,
+      "attributes": [
+        "NoHob",
+        "MMAP_IO",
+        "INITIALIZED",
+        "Conv",
+        "NS_DEVICE"
+      ],
+      "section": "RegisterMap"
+    },
+    {
+      "name": "IMEM Cookie Base",
+      "address": 342618112,
+      "size": 4096,
+      "attributes": [
+        "AddDev",
+        "MMAP_IO",
+        "INITIALIZED",
+        "Conv",
+        "NS_DEVICE"
+      ],
+      "section": "RegisterMap"
+    },
+    {
+      "name": "IPC_ROUTER_TOP",
+      "address": 4194304,
+      "size": 1048576,
+      "attributes": [
+        "AddDev",
+        "MMAP_IO",
+        "UNCACHEABLE",
+        "MmIO",
+        "NS_DEVICE"
+      ],
+      "section": "RegisterMap"
+    },
+    {
+      "name": "SECURITY CONTROL",
+      "address": 7864320,
+      "size": 28672,
+      "attributes": [
+        "AddDev",
+        "MMAP_IO",
+        "UNCACHEABLE",
+        "MmIO",
+        "NS_DEVICE"
+      ],
+      "section": "RegisterMap"
+    },
+    {
+      "name": "QUPV3_2_GSI",
+      "address": 8388608,
+      "size": 851968,
+      "attributes": [
+        "AddDev",
+        "MMAP_IO",
+        "UNCACHEABLE",
+        "MmIO",
+        "NS_DEVICE"
+      ],
+      "section": "RegisterMap"
+    },
+    {
+      "name": "QUPV3_0_GSI",
+      "address": 9437184,
+      "size": 851968,
+      "attributes": [
+        "AddDev",
+        "MMAP_IO",
+        "UNCACHEABLE",
+        "MmIO",
+        "NS_DEVICE"
+      ],
+      "section": "RegisterMap"
+    },
+    {
+      "name": "QUPV3_1_GSI",
+      "address": 10485760,
+      "size": 851968,
+      "attributes": [
+        "AddDev",
+        "MMAP_IO",
+        "UNCACHEABLE",
+        "MmIO",
+        "NS_DEVICE"
+      ],
+      "section": "RegisterMap"
+    },
+    {
+      "name": "PRNG_CFG_PRNG",
+      "address": 7929856,
+      "size": 65536,
+      "attributes": [
+        "AddDev",
+        "MMAP_IO",
+        "UNCACHEABLE",
+        "MmIO",
+        "NS_DEVICE"
+      ],
+      "section": "RegisterMap"
+    },
+    {
+      "name": "CRYPTO0 CRYPTO",
+      "address": 31195136,
+      "size": 262144,
+      "attributes": [
+        "AddDev",
+        "MMAP_IO",
+        "UNCACHEABLE",
+        "MmIO",
+        "NS_DEVICE"
+      ],
+      "section": "RegisterMap"
+    },
+    {
+      "name": "TCSR_TCSR_REGS",
+      "address": 33292288,
+      "size": 196608,
+      "attributes": [
+        "AddDev",
+        "MMAP_IO",
+        "UNCACHEABLE",
+        "MmIO",
+        "NS_DEVICE"
+      ],
+      "section": "RegisterMap"
+    },
+    {
+      "name": "GPU_GMU_CX_BLK",
+      "address": 46649344,
+      "size": 8192,
+      "attributes": [
+        "AddDev",
+        "MMAP_IO",
+        "UNCACHEABLE",
+        "MmIO",
+        "NS_DEVICE"
+      ],
+      "section": "RegisterMap"
+    },
+    {
+      "name": "GPU_CC",
+      "address": 46727168,
+      "size": 40960,
+      "attributes": [
+        "AddDev",
+        "MMAP_IO",
+        "UNCACHEABLE",
+        "MmIO",
+        "NS_DEVICE"
+      ],
+      "section": "RegisterMap"
+    },
+    {
+      "name": "QUPV3_SSC_GSI",
+      "address": 94371840,
+      "size": 851968,
+      "attributes": [
+        "AddDev",
+        "MMAP_IO",
+        "UNCACHEABLE",
+        "MmIO",
+        "NS_DEVICE"
+      ],
+      "section": "RegisterMap"
+    },
+    {
+      "name": "PERIPH_SS",
+      "address": 142606336,
+      "size": 2097152,
+      "attributes": [
+        "AddDev",
+        "MMAP_IO",
+        "UNCACHEABLE",
+        "MmIO",
+        "NS_DEVICE"
+      ],
+      "section": "RegisterMap"
+    },
+    {
+      "name": "MCCC_MCCC_MSTR",
+      "address": 151756800,
+      "size": 24576,
+      "attributes": [
+        "AddDev",
+        "MMAP_IO",
+        "UNCACHEABLE",
+        "MmIO",
+        "NS_DEVICE"
+      ],
+      "section": "RegisterMap"
+    },
+    {
+      "name": "USB30_PRIM",
+      "address": 174063616,
+      "size": 1159168,
+      "attributes": [
+        "AddDev",
+        "MMAP_IO",
+        "UNCACHEABLE",
+        "MmIO",
+        "NS_DEVICE"
+      ],
+      "section": "RegisterMap"
+    },
+    {
+      "name": "USB_RUMI",
+      "address": 175243264,
+      "size": 65536,
+      "attributes": [
+        "AddDev",
+        "MMAP_IO",
+        "UNCACHEABLE",
+        "MmIO",
+        "NS_DEVICE"
+      ],
+      "section": "RegisterMap"
+    },
+    {
+      "name": "USB30_SEC",
+      "address": 176160768,
+      "size": 1159168,
+      "attributes": [
+        "AddDev",
+        "MMAP_IO",
+        "UNCACHEABLE",
+        "MmIO",
+        "NS_DEVICE"
+      ],
+      "section": "RegisterMap"
+    },
+    {
+      "name": "AOSS",
+      "address": 184549376,
+      "size": 67108864,
+      "attributes": [
+        "AddDev",
+        "MMAP_IO",
+        "UNCACHEABLE",
+        "MmIO",
+        "NS_DEVICE"
+      ],
+      "section": "RegisterMap"
+    },
+    {
+      "name": "TLMM_WEST",
+      "address": 252706816,
+      "size": 3145728,
+      "attributes": [
+        "AddDev",
+        "MMAP_IO",
+        "UNCACHEABLE",
+        "MmIO",
+        "NS_DEVICE"
+      ],
+      "section": "RegisterMap"
+    },
+    {
+      "name": "TLMM_SOUTH",
+      "address": 256901120,
+      "size": 3145728,
+      "attributes": [
+        "AddDev",
+        "MMAP_IO",
+        "UNCACHEABLE",
+        "MmIO",
+        "NS_DEVICE"
+      ],
+      "section": "RegisterMap"
+    },
+    {
+      "name": "TLMM_NORTH",
+      "address": 261095424,
+      "size": 3145728,
+      "attributes": [
+        "AddDev",
+        "MMAP_IO",
+        "UNCACHEABLE",
+        "MmIO",
+        "NS_DEVICE"
+      ],
+      "section": "RegisterMap"
+    },
+    {
+      "name": "SMMU",
+      "address": 352321536,
+      "size": 851968,
+      "attributes": [
+        "AddDev",
+        "MMAP_IO",
+        "UNCACHEABLE",
+        "MmIO",
+        "NS_DEVICE"
+      ],
+      "section": "RegisterMap"
+    },
+    {
+      "name": "APSS_HM",
+      "address": 394264576,
+      "size": 228069376,
+      "attributes": [
+        "AddDev",
+        "MMAP_IO",
+        "UNCACHEABLE",
+        "MmIO",
+        "NS_DEVICE"
+      ],
+      "section": "RegisterMap"
+    }
+  ],
+  "remaining_review": [
+    "Stock IPC SHM at 0x805D0000 overlaps the stock unusable-DDR window. Candidate preserves the existing Mu HYP reservation and leaves IPC SHM reserved; early SEC/SMEM setup is unvalidated.",
+    "ConfigurationMapLib remains a Mu candidate: stock SecPagePoolCount=0x1800 vs donor 0x680; requires allocator/driver review.",
+    "Stock Android firmware map is not a runtime UEFI memory map or proof of safe XNU payload allocation."
+  ]
+}

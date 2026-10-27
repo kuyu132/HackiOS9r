@@ -1,0 +1,7 @@
+{
+  "hackios": {"url": "https://github.com/oosexgang/hackios-xnu-kernel", "commit": "d82c64a3a31cd27a0a0afbf6e213e467e44b1b4c"},
+  "mu": {"url": "https://github.com/Project-Silicium/Mu-Silicium", "commit": "4cba43c90e02cdbefbcd9fcdbda33d2328deaec0"},
+  "kernel": {"url": "https://github.com/LineageOS/android_kernel_oneplus_sm8250", "commit": "98a7970af93b7e01ee77156e7fa0eb7e059a57f0"},
+  "device": {"url": "https://github.com/LineageOS/android_device_oneplus_lemonades", "commit": "d137be73a7d60aba45e5763764a06ea446940808"},
+  "device_common": {"url": "https://github.com/LineageOS/android_device_oneplus_sm8250-common", "commit": "9883c00ec5893022f1e2a569788c9cef0263bcdb"}
+}

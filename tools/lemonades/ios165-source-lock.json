@@ -1,0 +1,36 @@
+{
+  "url": "https://updates.cdn-apple.com/2023SpringFCS/fullrestores/032-85130/6AB0D10A-8AF9-4F6C-8CF5-A1B315CABE88/iPhone10,3,iPhone10,6_16.5_20F66_Restore.ipsw",
+  "size": 6165698198,
+  "build_manifest_sha256": "7dd041dc7ac05f2e1f041013024f9062b8166d916c708ff8b46aca5e089e091f",
+  "product_version": "16.5",
+  "build": "20F66",
+  "supported_product_types": [
+    "iPhone10,6",
+    "iPhone10,3"
+  ],
+  "device_class": "d22ap",
+  "scope": "Local iOS 16.5 ARM64 userspace research inputs, not OnePlus firmware or an authorized restore image for 9R.",
+  "components": {
+    "rootfs": {
+      "manifest_key": "OS",
+      "name": "096-04088-077.dmg",
+      "size": 4728546953,
+      "compressed_size": 4728546953,
+      "crc32": "0x28fc181"
+    },
+    "os-cryptex": {
+      "manifest_key": "Cryptex1,SystemOS",
+      "name": "096-04666-078.dmg",
+      "size": 2726297600,
+      "compressed_size": 1094826706,
+      "crc32": "0x1ddd2ad5"
+    },
+    "app-cryptex": {
+      "manifest_key": "Cryptex1,AppOS",
+      "name": "096-03536-083.dmg",
+      "size": 10485760,
+      "compressed_size": 2379179,
+      "crc32": "0x27c0c027"
+    }
+  }
+}

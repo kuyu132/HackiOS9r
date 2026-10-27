@@ -1,0 +1,124 @@
+--- a/Silicon/Qualcomm/QcomPkg/Library/PlatformPeiLib/Include/FvList.h
++++ b/Silicon/Qualcomm/QcomPkg/Library/PlatformPeiLib/Include/FvList.h
+@@ -10,6 +10,6 @@
+ //
+ // FV List Structure
+ //
+-#define FV_LIST_LOCK_HANDLE(ListAddr, Index)       (*(UINT64 *)((ListAddr) + 0x18 + ((Index) * 0x48)))
++#define FV_LIST_LOCK_HANDLE(ListAddr, Index)       (*(UINT64 *)((UINT8 *)(ListAddr) + 0x18 + ((Index) * 0x48)))
+ 
+ #endif /* _FV_LIST_H_ */
+--- a/Silicon/Qualcomm/QcomPkg/Library/PlatformPeiLib/PlatformPei.c
++++ b/Silicon/Qualcomm/QcomPkg/Library/PlatformPeiLib/PlatformPei.c
+@@ -34,6 +34,21 @@
+ {
+   EFI_STATUS  Status;
+   UINTN      *FvListAddr;
++  UINT8       Initialized = 0;
++
++  // Lock was added in 1.5. The pointer must already refer to a valid, live
++  // scheduler; these ABI checks cannot validate a recovered physical address.
++  if (SchedulerProtocol == NULL ||
++      (SchedulerProtocol->Version >> 16) != 1 ||
++      SchedulerProtocol->Version < EFI_KERNEL_PROTOCOL_VER_LOCK_API ||
++      SchedulerProtocol->Lock == NULL ||
++      SchedulerProtocol->Lock->InitLock == NULL ||
++      SchedulerProtocol->Lock->DestroyLock == NULL) {
++    return NULL;
++  }
++
++  STATIC_ASSERT (0x18 + (MAX_FV_ENTRIES - 1) * 0x48 + sizeof (UINT64) <=
++                 FV_LIST_STRUCTURE_SIZE * MAX_FV_ENTRIES, "FV lock slots exceed allocation");
+ 
+   // Allocate Memory
+   FvListAddr = AllocateZeroPool (FV_LIST_STRUCTURE_SIZE * MAX_FV_ENTRIES);
+@@ -44,7 +59,7 @@
+ 
+   // Go thru each FV Entry
+   for (UINT8 i = 0; i < MAX_FV_ENTRIES; i++) {
+-    LockHandle *FvEntryHandle;
++    LockHandle *FvEntryHandle = NULL;
+     CHAR8       FvEntryName[16];
+ 
+     // Set FV Entry Name
+@@ -52,20 +67,26 @@
+ 
+     // Init FV Entry Lock
+     Status = SchedulerProtocol->Lock->InitLock (FvEntryName, &FvEntryHandle);
+-    if (EFI_ERROR (Status)) {
++    if (EFI_ERROR (Status) || FvEntryHandle == NULL) {
+       DEBUG ((EFI_D_ERROR, "%a: Failed to Init FV Entry %u Lock! Status = %r\n", __FUNCTION__, i, Status));
+       goto exit;
+     }
+ 
+     // Add FV Entry Lock Handle
+     FV_LIST_LOCK_HANDLE (FvListAddr, i) = (UINT64)FvEntryHandle;
++    Initialized++;
+   }
+ 
+   return FvListAddr;
+ 
+ exit:
+-  // Free Buffer
++  // Roll back only locks successfully created by this invocation.
+   if (FvListAddr != NULL) {
++    while (Initialized > 0) {
++      Initialized--;
++      SchedulerProtocol->Lock->DestroyLock (
++        (LockHandle *)(UINTN)FV_LIST_LOCK_HANDLE (FvListAddr, Initialized));
++    }
+     FreePool (FvListAddr);
+   }
+ 
+--- a/Silicon/Qualcomm/QcomPkg/Library/PlatformPeiLib/UefiConfig.c
++++ b/Silicon/Qualcomm/QcomPkg/Library/PlatformPeiLib/UefiConfig.c
+@@ -13,19 +13,24 @@
+     return EFI_INVALID_PARAMETER;
+   }
+ 
++  // Reject unknown entries before consulting the platform value.
++  if (AsciiStriCmp (EntryName, "OsTypeString")) {
++    return EFI_NOT_FOUND;
++  }
++
+   // Get Platform Type
+   CHAR8 *PlatformType = FixedPcdGetPtr (PcdPlatformType);
+ 
+   // Verify Platform Type
+-  ASSERT (PlatformType != "NULL");
+-
+-  // Compare Entry Names
+-  if (!AsciiStriCmp (EntryName, "OsTypeString")) {
+-    // Convert Entry Value to String
+-    AsciiStrCpyS (EntryValue, *EntryValueLength, PlatformType);
+-
+-    return EFI_SUCCESS;
++  if (PlatformType == NULL || !AsciiStrCmp (PlatformType, "NULL")) {
++    return EFI_NOT_READY;
+   }
+ 
+-  return EFI_NOT_FOUND;
++  // EntryValueLength is an input capacity, including the terminating NUL.
++  // Do not report success when the destination cannot hold the value.
++  if (*EntryValueLength < AsciiStrSize (PlatformType)) {
++    return EFI_BUFFER_TOO_SMALL;
++  }
++
++  return AsciiStrCpyS (EntryValue, *EntryValueLength, PlatformType);
+ }
+--- a/Silicon/Qualcomm/QcomPkg/Library/PlatformPeiLib/ShimLoader.c
++++ b/Silicon/Qualcomm/QcomPkg/Library/PlatformPeiLib/ShimLoader.c
+@@ -59,8 +59,11 @@
+   IN  UINT32   LibVersion,
+   OUT VOID   **LibIntf)
+ {
+-  // Very Parameters
+-  if (LibName == NULL || LibIntf == NULL) {
++  if (LibIntf == NULL) {
++    return EFI_INVALID_PARAMETER;
++  }
++  *LibIntf = NULL;
++  if (LibName == NULL) {
+     return EFI_INVALID_PARAMETER;
+   }
+ 

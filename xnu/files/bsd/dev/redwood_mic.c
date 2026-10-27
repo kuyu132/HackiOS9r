@@ -56,6 +56,7 @@
  *
  * What is asked for is given back at the end, and before the DSP is shut down (redwood_mic_dsp_down()).
  */
+#include <pexpert/hackios_platform.h>
 #include <kern/clock.h>
 #include <kern/locks.h>
 #include <kern/thread.h>
@@ -1814,6 +1815,9 @@ mic_thread(__unused void *parameter, __unused wait_result_t result)
 void
 redwood_mic_dsp_up(void)
 {
+	if (!hackios_platform_allows(HACKIOS_CAP_REDWOOD_HW)) {
+		return;
+	}
 	thread_t thread;
 
 	if (!PE_parse_boot_argn("mic", &level, sizeof(level)) || level == 0) {

@@ -1,0 +1,16 @@
+diff --git a/Silicon/Silicium/SiliciumPkg/SiliciumPkg.dsc.inc b/Silicon/Silicium/SiliciumPkg/SiliciumPkg.dsc.inc
+--- a/Silicon/Silicium/SiliciumPkg/SiliciumPkg.dsc.inc
++++ b/Silicon/Silicium/SiliciumPkg/SiliciumPkg.dsc.inc
+@@ -467,10 +467,8 @@
+   #
+   # BDS
+   #
+-  MdeModulePkg/Universal/BdsDxe/BdsDxe.inf {
+-    <LibraryClasses>
+-      NULL|SiliciumPkg/Library/KernelErrataPatcherLib/KernelErrataPatcherLib.inf
+-  }
++  # The 9R diagnostic probe does not need Windows loader memory hooks.
++  MdeModulePkg/Universal/BdsDxe/BdsDxe.inf
+   PcBdsPkg/MsBootPolicy/MsBootPolicy.inf
+   MdeModulePkg/Universal/PrintDxe/PrintDxe.inf
+   MdeModulePkg/Universal/SetupBrowserDxe/SetupBrowserDxe.inf

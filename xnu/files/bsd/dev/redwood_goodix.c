@@ -28,6 +28,7 @@
  * drivers/input/touchscreen/{goodix_berlin_*,focaltech_touch/focaltech_core}.c, and the phone's
  * own device tree.
  */
+#include <pexpert/hackios_platform.h>
 #include <kern/clock.h>
 #include <kern/thread.h>
 #include <libkern/libkern.h>
@@ -1502,6 +1503,9 @@ goodix_thread(__unused void *parameter, __unused wait_result_t result)
 void
 redwood_goodix_init(void)
 {
+	if (!hackios_platform_allows(HACKIOS_CAP_REDWOOD_HW)) {
+		return;
+	}
 	uint32_t enabled = 0;
 	thread_t thread;
 

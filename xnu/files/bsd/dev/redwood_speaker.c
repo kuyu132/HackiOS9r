@@ -62,6 +62,7 @@
  * Register layouts: the files above, and Linux's sound/soc/codecs/aw88261.c; pins:
  * drivers/pinctrl/qcom/pinctrl-yupik.c of the same kernel and the phone's own device tree.
  */
+#include <pexpert/hackios_platform.h>
 #include <kern/clock.h>
 #include <kern/thread.h>
 #include <libkern/libkern.h>
@@ -729,6 +730,9 @@ faulty(struct amplifier *a, uint16_t *status)
 bool
 redwood_speaker_prepare(const uint8_t *acf, uint64_t size)
 {
+	if (!hackios_platform_allows(HACKIOS_CAP_REDWOOD_HW)) {
+		return false;
+	}
 	if (tlmm == 0) {
 		tlmm = ml_io_map(TLMM_PHYS, TLMM_SIZE);
 	}
@@ -1200,6 +1204,9 @@ probe_thread(__unused void *parameter, __unused wait_result_t result)
 void
 redwood_speaker_init(void)
 {
+	if (!hackios_platform_allows(HACKIOS_CAP_REDWOOD_HW)) {
+		return;
+	}
 	thread_t thread;
 
 	if (!PE_parse_boot_argn("speaker_probe", &probe_level, sizeof(probe_level)) || probe_level == 0) {

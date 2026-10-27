@@ -848,7 +848,7 @@ ramfs_link(struct vnop_link_args *ap)
 }
 
 static int
-ramfs_rename(struct vnop_rename_args *ap)
+ramfs_rename_common(struct vnop_rename_args *ap, vfs_rename_flags_t flags)
 {
 	struct ramfs_node *fdir = RAMFS_NODE(ap->a_fdvp);
 	struct ramfs_node *tdir = RAMFS_NODE(ap->a_tdvp);
@@ -857,6 +857,19 @@ ramfs_rename(struct vnop_rename_args *ap)
 	struct componentname *fcnp = ap->a_fcnp, *tcnp = ap->a_tcnp;
 	struct ramfs_dirent *fde, *tde, *spare;
 	int error = 0;
+	bool changed = false;
+	bool swap = (flags & VFS_RENAME_SWAP) != 0;
+	struct ramfs_node *target = ap->a_tvp ? RAMFS_NODE(ap->a_tvp) : NULL;
+
+	if (flags & ~(VFS_RENAME_SWAP | VFS_RENAME_EXCL)) {
+		return ENOTSUP;
+	}
+	if (swap && (flags & VFS_RENAME_EXCL)) {
+		return EINVAL;
+	}
+	if (fdir->rn_mount != rm || tdir->rn_mount != rm || (target && target->rn_mount != rm)) {
+		return EXDEV;
+	}
 
 	if (tcnp->cn_namelen > RAMFS_MAX_NAME) {
 		return ENAMETOOLONG;
@@ -867,7 +880,16 @@ ramfs_rename(struct vnop_rename_args *ap)
 	fde = ramfs_dir_find(fdir, fcnp->cn_nameptr, (size_t)fcnp->cn_namelen);
 	tde = ramfs_dir_find(tdir, tcnp->cn_nameptr, (size_t)tcnp->cn_namelen);
 
-	if (fde == NULL || fde->rd_node != node || tdir->rn_nlink == 0) {
+	if (fde == NULL || fde->rd_node != node || fdir->rn_nlink == 0 || tdir->rn_nlink == 0 ||
+	    (tde ? tde->rd_node != target : target != NULL)) {
+		error = ENOENT;
+		goto out;
+	}
+	if ((flags & VFS_RENAME_EXCL) && tde != NULL) {
+		error = EEXIST;
+		goto out;
+	}
+	if (swap && tde == NULL) {
 		error = ENOENT;
 		goto out;
 	}
@@ -882,6 +904,36 @@ ramfs_rename(struct vnop_rename_args *ap)
 	}
 	if (tde != NULL && tde->rd_node == node) {
 		/* two names of the same file: POSIX wants the rename to do nothing */
+		goto out;
+	}
+	if (swap) {
+		/* Both directions must be acyclic, including directory/file swaps.
+		 * The mount lock makes the pair of name-to-node changes indivisible. */
+		if (target->rn_type == VDIR) {
+			for (struct ramfs_node *up = fdir; up != NULL; up = (up == rm->rm_root) ? NULL : up->rn_parent) {
+				if (up == target) {
+					error = EINVAL;
+					goto out;
+				}
+			}
+		}
+		fde->rd_node = target;
+		tde->rd_node = node;
+		if (fdir != tdir) {
+			if (node->rn_type == VDIR) {
+				fdir->rn_nlink--; tdir->rn_nlink++;
+				node->rn_parent = tdir;
+			}
+			if (target->rn_type == VDIR) {
+				tdir->rn_nlink--; fdir->rn_nlink++;
+				target->rn_parent = fdir;
+			}
+		}
+		ramfs_touch(fdir, true);
+		ramfs_touch(tdir, true);
+		ramfs_touch(node, false);
+		ramfs_touch(target, false);
+		changed = true;
 		goto out;
 	}
 
@@ -921,16 +973,38 @@ ramfs_rename(struct vnop_rename_args *ap)
 		node->rn_parent = tdir;
 	}
 	ramfs_touch(node, false);
+	changed = true;
 out:
 	lck_mtx_unlock(&rm->rm_lock);
 	if (spare != NULL) {
 		ramfs_dirent_free(spare);
 	}
-	if (!error) {
+	if (!error && changed) {
 		vnode_update_identity(ap->a_fvp, ap->a_tdvp, tcnp->cn_nameptr, tcnp->cn_namelen, tcnp->cn_hash,
 		    VNODE_UPDATE_PARENT | VNODE_UPDATE_NAME);
+		if (swap) {
+			vnode_update_identity(ap->a_tvp, ap->a_fdvp, fcnp->cn_nameptr, fcnp->cn_namelen, fcnp->cn_hash,
+			    VNODE_UPDATE_PARENT | VNODE_UPDATE_NAME);
+		}
 	}
 	return error;
+}
+
+static int
+ramfs_rename(struct vnop_rename_args *ap)
+{
+	return ramfs_rename_common(ap, 0);
+}
+
+static int
+ramfs_renamex(struct vnop_renamex_args *ap)
+{
+	struct vnop_rename_args basic = {
+		.a_fdvp = ap->a_fdvp, .a_fvp = ap->a_fvp, .a_fcnp = ap->a_fcnp,
+		.a_tdvp = ap->a_tdvp, .a_tvp = ap->a_tvp, .a_tcnp = ap->a_tcnp,
+		.a_context = ap->a_context
+	};
+	return ramfs_rename_common(&basic, ap->a_flags);
 }
 
 static int
@@ -1685,6 +1759,7 @@ const struct vnodeopv_entry_desc ramfs_vnodeop_entries[] = {
 	{ .opve_op = &vnop_remove_desc, .opve_impl = (VOPFUNC)ramfs_remove },
 	{ .opve_op = &vnop_link_desc, .opve_impl = (VOPFUNC)ramfs_link },
 	{ .opve_op = &vnop_rename_desc, .opve_impl = (VOPFUNC)ramfs_rename },
+	{ .opve_op = &vnop_renamex_desc, .opve_impl = (VOPFUNC)ramfs_renamex },
 	{ .opve_op = &vnop_mkdir_desc, .opve_impl = (VOPFUNC)ramfs_mkdir },
 	{ .opve_op = &vnop_rmdir_desc, .opve_impl = (VOPFUNC)ramfs_rmdir },
 	{ .opve_op = &vnop_symlink_desc, .opve_impl = (VOPFUNC)ramfs_symlink },
@@ -1876,6 +1951,8 @@ ramfs_vfs_getattr(mount_t mp, struct vfs_attr *fsap, __unused vfs_context_t ctx)
 		    VOL_CAP_FMT_PERSISTENTOBJECTIDS |
 		    VOL_CAP_FMT_PATH_FROM_ID;
 		cap->capabilities[VOL_CAPABILITIES_INTERFACES] =
+		    VOL_CAP_INT_RENAME_SWAP |
+		    VOL_CAP_INT_RENAME_EXCL |
 		    VOL_CAP_INT_ADVLOCK |
 		    VOL_CAP_INT_FLOCK |
 		    VOL_CAP_INT_EXTENDED_SECURITY |
@@ -1897,6 +1974,8 @@ ramfs_vfs_getattr(mount_t mp, struct vfs_attr *fsap, __unused vfs_context_t ctx)
 		    VOL_CAP_FMT_HIDDEN_FILES |
 		    VOL_CAP_FMT_PATH_FROM_ID;
 		cap->valid[VOL_CAPABILITIES_INTERFACES] =
+		    VOL_CAP_INT_RENAME_SWAP |
+		    VOL_CAP_INT_RENAME_EXCL |
 		    VOL_CAP_INT_SEARCHFS |
 		    VOL_CAP_INT_ATTRLIST |
 		    VOL_CAP_INT_NFSEXPORT |

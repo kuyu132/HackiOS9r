@@ -1,0 +1,15 @@
+{
+  "xnu_commit": "c54f35ca767986246321eb901baf8f5ff7923f6a",
+  "repositories": {
+    "AvailabilityVersions": {"url": "https://github.com/apple-oss-distributions/AvailabilityVersions.git", "commit": "5d9baee345b3bc72b26c71adc65f94f2d5e9ced2"},
+    "libdispatch": {"url": "https://github.com/apple-oss-distributions/libdispatch.git", "commit": "a641558f447659d90ad002ef0ee6f0212273fbfc"},
+    "libpthread": {"url": "https://github.com/apple-oss-distributions/libpthread.git", "commit": "a6c70ca0e544347a0377babf748f831577ec24f9"},
+    "theos-sdks": {"url": "https://github.com/theos/sdks.git", "commit": "0222fd5413cf4b9af096f37b4621afa2688572f7", "sparse": "iPhoneOS16.5.sdk"}
+  },
+  "mac_sdk": {
+    "url": "https://github.com/joseluisq/macosx-sdks/releases/download/13.3/MacOSX13.3.sdk.tar.xz",
+    "sha256": "518e35eae6039b3f64e8025f4525c1c43786cc5cf39459d609852faf091e34be",
+    "member": "MacOSX13.3.sdk/System/Library/Frameworks/Kernel.framework"
+  },
+  "sdk_note": "Theos directory is named iPhoneOS16.5.sdk; its upstream SDKSettings.json reports Version 16.4. Preserve metadata and record an explicit 16.5 deployment target; this is a patched community SDK, not an Apple internal SDK."
+}

@@ -48,6 +48,7 @@
  * channel for a peripheral is 0x10000 bytes of "chnls" per channel), Xiaomi's leds-qti-flash.c,
  * drivers/thermal/qcom/qcom-spmi-temp-alarm.c.
  */
+#include <pexpert/hackios_platform.h>
 #include <kern/clock.h>
 #include <kern/thread.h>
 #include <libkern/libkern.h>
@@ -726,6 +727,9 @@ out:
 void
 redwood_torch_init(void)
 {
+	if (!hackios_platform_allows(HACKIOS_CAP_REDWOOD_HW)) {
+		return;
+	}
 	thread_t thread;
 
 	if (!PE_parse_boot_argn("torch", &level, sizeof(level)) || level == 0) {

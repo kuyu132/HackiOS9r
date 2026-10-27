@@ -1,0 +1,24 @@
+## SPDX-License-Identifier: BSD-2-Clause-Patent
+[Defines]
+  INF_VERSION = 0x00010018
+  BASE_NAME = LemonadesProbeBootManagerLib
+  FILE_GUID = 1DF9A1E4-98F0-48A6-9EDA-30D9B058442D
+  VERSION_STRING = 0.1
+  MODULE_TYPE = DXE_DRIVER
+  LIBRARY_CLASS = PlatformBootManagerLib|DXE_DRIVER
+
+[Sources]
+  ProbeBootManager.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  MsCorePkg/MsCorePkg.dec
+
+[LibraryClasses]
+  BaseLib
+  DxeServicesLib
+  MemoryAllocationLib
+  UefiBootManagerLib
+  UefiBootServicesTableLib
+  UefiLib

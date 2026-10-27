@@ -9,6 +9,7 @@
 # brings back Android. The session's log is printed (QEMU) or saved in logs/ (phones).
 . "$(dirname "$(readlink -f "$0")")/lib.sh"
 load_device "$1"
+[ "${BRINGUP_STAGE:-}" != probe ] || die "$DEVICE is a UEFI probe target; XNU boot is not enabled (docs/ONEPLUS-9R.md)"
 SECS=${2:-$DEFAULT_SECS}
 mkdir -p logs
 [ -f userland/root.apfs ] && [ -f userland/system.apfs ] || die "no images: run common/build.sh $DEVICE first"

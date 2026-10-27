@@ -68,6 +68,7 @@
  * CSID-lite 0, IFE-lite 0, one match register and context of the SMMU) are written the same way, read back
  * where they keep what they are given, and taken back in the reverse order.
  */
+#include <pexpert/hackios_platform.h>
 #include <kern/clock.h>
 #include <kern/locks.h>
 #include <kern/thread.h>
@@ -4218,6 +4219,9 @@ camera_thread(__unused void *parameter, __unused wait_result_t result)
 void
 redwood_camera_init(void)
 {
+	if (!hackios_platform_allows(HACKIOS_CAP_REDWOOD_HW)) {
+		return;
+	}
 	thread_t thread;
 
 	if (!PE_parse_boot_argn("cam", &level, sizeof(level)) || level == 0) {

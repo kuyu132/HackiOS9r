@@ -47,6 +47,7 @@
  * in a cache line of this kernel's to be written back over what the controller writes); the data
  * buffers are this kernel's memory, cleaned and invalidated around every read.
  */
+#include <pexpert/hackios_platform.h>
 #include <kern/clock.h>
 #include <kern/locks.h>
 #include <kern/thread.h>
@@ -1130,6 +1131,9 @@ ufshc_report(const char *when)
 bool
 ufshc_probe(const struct ufshc_loader *loader, bool only)
 {
+	if (!hackios_platform_allows(HACKIOS_CAP_REDWOOD_HW)) {
+		return false;
+	}
 	uint32_t cap, ver, hcs, hce, is, ie, iacr, ahit, base, baseu, db, rsr, cnr, tm_base, tm_baseu, tm_db, tm_rsr;
 	uint32_t uefi_dw0 = 0, slots = 31;
 	uint8_t uefi_upiu[32] = { 0 };

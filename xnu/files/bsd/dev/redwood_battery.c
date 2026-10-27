@@ -7,6 +7,7 @@
  * polls it, and publishes a read-only cache; XNU only consumes that cache.
  * Charger limits and JEITA protection therefore remain firmware-owned.
  */
+#include <pexpert/hackios_platform.h>
 #include <kern/clock.h>
 #include <kern/thread.h>
 #include <libkern/libkern.h>
@@ -175,6 +176,9 @@ battery_thread(__unused void *parameter, __unused wait_result_t result)
 void
 redwood_battery_init(void)
 {
+	if (!hackios_platform_allows(HACKIOS_CAP_REDWOOD_HW)) {
+		return;
+	}
 	uint32_t enabled = 0;
 	uint64_t shared_pa = 0;
 	vm_offset_t page;

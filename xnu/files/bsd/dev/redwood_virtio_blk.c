@@ -23,6 +23,7 @@
  * to the image, and refusing is one less way to damage it by accident.
  */
 
+#include <pexpert/hackios_platform.h>
 #include <kern/clock.h>
 #include <kern/locks.h>
 #include <libkern/libkern.h>
@@ -478,6 +479,9 @@ blk_attach(struct blk_device *d, int slot)
 void
 redwood_virtio_blk_init(void)
 {
+	if (!hackios_platform_allows(HACKIOS_CAP_VIRTIO_MMIO)) {
+		return;
+	}
 	uint32_t enabled = 0;
 	vm_offset_t bus;
 	struct blk_device *d = &blk_dev;

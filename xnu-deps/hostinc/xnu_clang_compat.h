@@ -16,6 +16,9 @@
 #else
 #define __builtin_xnu_types_compatible(a, b)     __builtin_types_compatible_p(a, b)
 #endif
+#else
+/* Patched OSData/OSValueObject also consult this switch with Apple clang. */
+#define XNU_NO_TYPE_BUILTINS                     0
 #endif
 #endif
 #endif

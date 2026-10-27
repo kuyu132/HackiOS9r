@@ -1,0 +1,7 @@
+{
+  "repository": "https://github.com/oosexgang/hackios-xnu-userland.git",
+  "commit": "a79ff0772a3454fd1ef127e181e5b3bce6c9ce18",
+  "files_sha256": {
+    "tools/apfs/mkapfs.py": "c14a81ae9286c69a77673552fcf240de84d37e8fde16f617b2d2efc84d758bdc"
+  }
+}

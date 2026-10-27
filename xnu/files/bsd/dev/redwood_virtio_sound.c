@@ -19,6 +19,7 @@
  *
  * The protocol: Virtual I/O Device (VIRTIO) Version 1.2, section 5.14 "Sound Device".
  */
+#include <pexpert/hackios_platform.h>
 #include <kern/clock.h>
 #include <kern/locks.h>
 #include <kern/thread_call.h>
@@ -379,6 +380,9 @@ sound_attach(int slot)
 void
 redwood_virtio_sound_init(void)
 {
+	if (!hackios_platform_allows(HACKIOS_CAP_VIRTIO_MMIO)) {
+		return;
+	}
 	uint32_t enabled = 0;
 	vm_offset_t bus;
 

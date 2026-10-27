@@ -15,6 +15,12 @@
 #   SKIP="kernel loader images boot"   leave steps out
 . "$(dirname "$(readlink -f "$0")")/lib.sh"
 load_device "$1"; shift
+if [ "${BRINGUP_STAGE:-}" = probe ]; then
+	LOADER_TARGET="$DEVICE" xnuloader/build.sh || die "probe loader build failed"
+	echo "build: out/$DEVICE/loader.efi (UEFI diagnostics only, not an Android boot image)"
+	echo "build: next: docs/ONEPLUS-9R.md; a device-specific UEFI and DTB are still required"
+	exit 0
+fi
 skip() { [[ " $SKIP " == *" $1 "* ]]; }
 mkdir -p out
 

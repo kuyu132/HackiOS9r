@@ -8,7 +8,12 @@
 #include <miscfs/devfs/devfs.h>
 #include <sys/conf.h>
 #include <sys/errno.h>
+#include <sys/fcntl.h>
+#include <sys/filio.h>
+#include <sys/vnode.h>
+#include "lemonades_input_queue.h"
 #include <sys/proc.h>
+#include <sys/select.h>
 #include <sys/redwood_input.h>
 #include <sys/systm.h>
 #include <sys/uio.h>
@@ -59,6 +64,9 @@ latency_lines(void)
 static LCK_GRP_DECLARE(touch_lck_grp, "redwood-touch");
 static LCK_MTX_DECLARE(touch_lock, &touch_lck_grp);
 static struct redwood_touch touch_queue[TOUCH_QUEUE];
+static struct lemonades_input_queue input_v1;
+/* Protected by touch_lock, including select registration and wakeup. */
+static struct selinfo input_select;
 static uint32_t touch_head, touch_tail;        /* read from head, add at tail */
 
 /*
@@ -127,11 +135,14 @@ touch_post(uint32_t type, uint32_t finger, uint32_t x, uint32_t y, bool from_dri
 	t->finger = finger;
 	t->x = x > 65535 ? 65535 : x;
 	t->y = y > 65535 ? 65535 : y;
+	(void)lemonades_input_post(&input_v1, t->time, type, finger, t->x, t->y, !from_driver);
+	selwakeup(&input_select);
 	if (from_driver) {
 		count_fingers(type, finger);
 	}
 	lck_mtx_unlock(&touch_lock);
 	wakeup(&touch_queue);
+	wakeup(&input_v1);
 }
 
 void
@@ -141,23 +152,78 @@ redwood_touch_post(uint32_t type, uint32_t finger, uint32_t x, uint32_t y)
 }
 
 static int
-touch_open(__unused dev_t dev, __unused int flags, __unused int devtype, __unused struct proc *p)
+touch_open(dev_t dev, int flags, __unused int devtype, __unused struct proc *p)
 {
+	if (minor(dev) == 1) {
+		if (!(flags & FREAD) || (flags & FWRITE)) return EACCES;
+		lck_mtx_lock(&touch_lock);
+		int error = input_v1.exhausted ? EOVERFLOW : (input_v1.opened || input_v1.reading) ? EBUSY : 0;
+		if (!error) {
+			input_v1.opened = 1;
+			lemonades_input_resync(&input_v1, mach_absolute_time(), LEMONADES_INPUT_OPEN);
+			if (input_v1.exhausted) { input_v1.opened = 0; error = EOVERFLOW; }
+		}
+		lck_mtx_unlock(&touch_lock);
+		return error;
+	}
 	return 0;
 }
 
 static int
-touch_close(__unused dev_t dev, __unused int flags, __unused int devtype, __unused struct proc *p)
+touch_close(dev_t dev, __unused int flags, __unused int devtype, __unused struct proc *p)
 {
+	if (minor(dev) == 1) {
+		lck_mtx_lock(&touch_lock);
+		input_v1.opened = 0;
+		selthreadclear(&input_select);
+		lck_mtx_unlock(&touch_lock);
+		wakeup(&input_v1);
+	}
 	return 0;
 }
 
 static int
-touch_read(__unused dev_t dev, struct uio *uio, __unused int ioflag)
+snapshot_read(struct uio *uio, int ioflag)
+{
+	struct lemonades_input_record record;
+	int error = 0;
+	if (uio_resid(uio) == 0) return 0;
+	if (uio_resid(uio) < (user_ssize_t)sizeof(record)) return EINVAL;
+	lck_mtx_lock(&touch_lock);
+	if (input_v1.reading) { lck_mtx_unlock(&touch_lock); return EBUSY; }
+	input_v1.reading = 1;
+	while (!input_v1.count && input_v1.opened && !input_v1.exhausted) {
+		if (ioflag & IO_NDELAY) { error = EWOULDBLOCK; break; }
+		error = msleep(&input_v1, &touch_lock, PZERO | PCATCH, "lemonades-touch", NULL);
+		if (error) break;
+	}
+	if (!error && (!input_v1.opened || input_v1.exhausted))
+		error = input_v1.exhausted ? EOVERFLOW : ENXIO;
+	/* One complete snapshot per read. No lock held over faulting copyout.
+	 * A copy fault invalidates all pending deltas and schedules a fresh snapshot. */
+	if (!error && lemonades_input_pop(&input_v1, &record)) {
+		lck_mtx_unlock(&touch_lock);
+		error = uiomove((caddr_t)&record, sizeof(record), uio);
+		lck_mtx_lock(&touch_lock);
+		if (error) {
+			if (input_v1.current.dropped == UINT64_MAX) input_v1.exhausted = 1;
+			else input_v1.current.dropped++; /* record removed before copyout */
+			lemonades_input_resync(&input_v1, mach_absolute_time(), LEMONADES_INPUT_READ_FAULT);
+			selwakeup(&input_select);
+		}
+	}
+	input_v1.reading = 0;
+	lck_mtx_unlock(&touch_lock);
+	return error;
+}
+
+static int
+touch_read(dev_t dev, struct uio *uio, int ioflag)
 {
 	struct redwood_touch t;
 	int error = 0, moved = 0;
 
+	if (minor(dev) == 1) return snapshot_read(uio, ioflag);
 	lck_mtx_lock(&touch_lock);
 	while (touch_head == touch_tail) {
 		error = msleep(&touch_queue, &touch_lock, PZERO | PCATCH, "redwood-touch", NULL);
@@ -181,11 +247,12 @@ touch_read(__unused dev_t dev, struct uio *uio, __unused int ioflag)
 }
 
 static int
-touch_write(__unused dev_t dev, struct uio *uio, __unused int ioflag)
+touch_write(dev_t dev, struct uio *uio, __unused int ioflag)
 {
 	struct redwood_touch t;
 	int error = 0;
 
+	if (minor(dev) == 1) return EACCES;
 	while (uio_resid(uio) >= (user_ssize_t)sizeof(t)) {
 		error = uiomove((caddr_t)&t, sizeof(t), uio);
 		if (error) {
@@ -199,9 +266,33 @@ touch_write(__unused dev_t dev, struct uio *uio, __unused int ioflag)
 	return error;
 }
 
+static int
+touch_ioctl(dev_t dev, u_long command, __unused caddr_t data, __unused int flags, __unused struct proc *p)
+{
+	/* fcntl(F_SETFL) issues FIONBIO and FIOASYNC when changing flags. read receives
+	 * IO_NDELAY from those flags; no per-device nonblocking state is needed. */
+	if (minor(dev) != 1) return ENODEV;
+	if (command == FIONBIO) return 0;
+	/* No SIGIO delivery is implemented; disabling it must still succeed. */
+	if (command == FIOASYNC) return *(int *)data ? ENOTSUP : 0;
+	return ENOTTY;
+}
+
+static int
+touch_select(dev_t dev, int which, void *wql, struct proc *p)
+{
+	if (minor(dev) != 1) return ENODEV; /* legacy endpoint has no select contract */
+	if (which != FREAD) return 0;
+	lck_mtx_lock(&touch_lock);
+	int ready = input_v1.count || input_v1.exhausted || !input_v1.opened;
+	if (!ready) selrecord(p, &input_select, wql);
+	lck_mtx_unlock(&touch_lock);
+	return ready ? 1 : 0;
+}
+
 static const struct cdevsw touch_cdevsw = {
 	.d_open = touch_open, .d_close = touch_close, .d_read = touch_read, .d_write = touch_write,
-	.d_ioctl = eno_ioctl, .d_stop = eno_stop, .d_reset = eno_reset, .d_select = eno_select,
+	.d_ioctl = touch_ioctl, .d_stop = eno_stop, .d_reset = eno_reset, .d_select = touch_select,
 	.d_mmap = eno_mmap, .d_strategy = eno_strat, .d_type = 0
 };
 
@@ -212,6 +303,9 @@ redwood_input_init(void)
 
 	if (major < 0 || devfs_make_node(makedev(major, 0), DEVFS_CHAR, UID_ROOT, GID_WHEEL, 0666, "redwood-touch") == NULL) {
 		printf("redwood-touch: cannot create the device\n");
+	}
+	if (major >= 0 && devfs_make_node(makedev(major, 1), DEVFS_CHAR, UID_ROOT, GID_WHEEL, 0600, "lemonades-touch") == NULL) {
+		printf("lemonades-touch: cannot create the snapshot device\n");
 	}
 	exit_call = thread_call_allocate(exit_hold_elapsed, NULL);
 	redwood_cpufreq_init();

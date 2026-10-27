@@ -10,6 +10,7 @@
  * merged receive buffers): a 12-byte header nobody reads, then the frame, one buffer each.
  * No interrupt is used; the interface's thread asks (virtio_poll()).
  */
+#include <pexpert/hackios_platform.h>
 #include <kern/thread.h>
 #include <libkern/libkern.h>
 #include <mach/mach_types.h>
@@ -282,6 +283,9 @@ static struct redwood_net_link virtio_link = {
 void
 redwood_virtio_net_init(void)
 {
+	if (!hackios_platform_allows(HACKIOS_CAP_VIRTIO_MMIO)) {
+		return;
+	}
 	uint32_t enabled = 0;
 
 	if (!PE_parse_boot_argn("virtio_net", &enabled, sizeof(enabled)) || !enabled) {

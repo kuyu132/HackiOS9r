@@ -1,5 +1,8 @@
 # HackiOS — XNU kernel
 
+> Local development: [OnePlus 9R / lemonades bring-up](docs/ONEPLUS-9R.md).
+> UEFI probe only; no working 9R iOS ROM or hardware boot validation yet.
+
 **HackiOS** boots Apple's open-source **XNU kernel** (`xnu-8796.121.2`, the kernel of iOS 16.5) on Android phone
 hardware and runs the **unmodified iOS 16.5 user space** on top of it: launchd → backboardd → SpringBoard →
 apps. Our own EFI loader, our own replacements for Apple's closed drivers, a UEFI port, and a Linux Wi-Fi driver

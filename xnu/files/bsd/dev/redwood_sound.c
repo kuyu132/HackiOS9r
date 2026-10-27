@@ -69,6 +69,7 @@
  * Message layouts: the files above, and Linux's sound/soc/qcom/qdsp6/ (q6afe.c, q6adm.c,
  * q6asm.c); the SMMU: redwood_wifi.c, which does the same for the Wi-Fi's stream.
  */
+#include <pexpert/hackios_platform.h>
 #include <kern/clock.h>
 #include <kern/locks.h>
 #include <kern/thread.h>
@@ -1474,6 +1475,9 @@ out:
 void
 redwood_sound_dsp_up(void)
 {
+	if (!hackios_platform_allows(HACKIOS_CAP_REDWOOD_HW)) {
+		return;
+	}
 	thread_t thread;
 
 	if (!PE_parse_boot_argn("sound", &level, sizeof(level)) || level == 0) {

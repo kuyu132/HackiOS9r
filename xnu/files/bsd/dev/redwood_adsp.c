@@ -76,6 +76,7 @@
  * qcom,glink/adsp, qcom,ipcc@408000, power-controller@c300000, reserved-memory), layouts from
  * Linux (see redwood_wifi.c for the files).
  */
+#include <pexpert/hackios_platform.h>
 #include <kern/clock.h>
 #include <kern/kalloc.h>
 #include <kern/locks.h>
@@ -3195,6 +3196,9 @@ whole_thread(__unused void *parameter, __unused wait_result_t result)
 void
 redwood_adsp_init(void)
 {
+	if (!hackios_platform_allows(HACKIOS_CAP_REDWOOD_HW)) {
+		return;
+	}
 	uint32_t on = 0;
 	thread_t thread;
 

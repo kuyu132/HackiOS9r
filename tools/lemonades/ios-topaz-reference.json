@@ -1,0 +1,26 @@
+{
+  "review_date": "2026-10-25",
+  "repository": "https://github.com/MakrSas/ios-topaz",
+  "branch": "topaz",
+  "commit": "e4772911e116ab4ab6c4ac1f38e6106fefe8b483",
+  "scope": "Read-only source comparison; no upstream scripts or firmware executed; no device accessed",
+  "reviewed_files_sha256": {
+    "README.md": "3ab870ae951b4bfa9b6c878c11b194244cd5e61b1bf6e2ee844a5d505051625e",
+    "CREDITS.md": "2a268e874f8c478abc14265f2cf528985decb7b424b74fede7dedb4facdf7af5",
+    "RECOVERY.md": "cffd3c0fe712d558b9d9a8e69fe61d58a1b18335d52c492142e64df06391464b",
+    "shim/build.sh": "0d9e4c0b2244f6a532ed75edd163f1d5f49dc5e96fea42407f68915583de9e87",
+    "shim/start.S": "61063b64907979ed6aabd7cd1a245a27e54f848e22fca8286c46d597126ccd48",
+    "shim/shim.c": "ab5f441716b3b758504d5c0a2e71b5ef294e7297f49e81d05cf0b5dae6b24d0a",
+    "shim/loader.c": "80382845cae276766b2dc8c4195d46f760a50d7a17bbe556345b6638c977b875",
+    "tools/mkadt.py": "243c1c6267570200837db08cd893a1da830bf1fd5e942f27e3fb0625231a4dc6",
+    "tools/mkpayload.py": "b85e1b50cfa73102b0d2c04e133f8f63b5a7f1e85b9b0cf4fbfbb24d47782936",
+    "tools/qemu-sweet.py": "d52b685741262009b57a5c3cc8aca279d91cc4e73acec80ab52a09c9fff0878c",
+    "tools/mkiosroot.sh": "a2092683dc28d87a35c0d19f2e753c445dd3f6375f67f443c6e9e948c3109311",
+    "tools/sweet-root-tweaks.py": "d604e9fd74f8344b87a351cf573346f4b8d2a3f73e9b3948cb720abcefd56398",
+    "tools/build-local.sh": "89c1bc6f7002a0b0add1ace90a057b3d597c16c9dade978b34be8a08d5b5fda7",
+    ".github/workflows/xnu.yml": "0783bf29529666c14e96d2878c71f2ef9c6d2330e135628baebcabfe27e1613a",
+    "xnu/patches/0080-topaz-cpu-topology-skip-sweet-hw.patch": "22d8a1d355d0cfddaeb9c8f533e4ab640bfe6933d9a0cd7537bbc44594850352",
+    "xnu/patches/0140-topaz-4k-pages.patch": "0b948177591667f5f2b2bf4a42d15c64b9bb6e556162eecb9dc0194c6a98cc49",
+    "xnu/patches/0141-topaz-amp-clusters.patch": "03c21262cdc0f27452dab8256123b8c956430445fb16bb45749421725ec953b3"
+  }
+}

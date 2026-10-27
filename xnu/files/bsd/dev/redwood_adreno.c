@@ -91,6 +91,7 @@
  * cmd-db.c, drivers/firmware/qcom/qcom_scm{,-smc}.c, drivers/soc/qcom/mdt_loader.c. The phone's
  * vendor kernel agrees on every offset used here, and is the only source for the frequency counter.
  */
+#include <pexpert/hackios_platform.h>
 #include <kern/clock.h>
 #include <libkern/libkern.h>
 #include <mach/mach_types.h>
@@ -4019,6 +4020,9 @@ start_by_itself(void)
 void
 redwood_adreno_init(void)
 {
+	if (!hackios_platform_allows(HACKIOS_CAP_REDWOOD_HW)) {
+		return;
+	}
 	static const char *const what[] = {
 		"", "the clocks outside", "the fuses", "the clock controller", "the CX half's power", "the clocks", "the first words",
 		"the GMU's RPMh sequencer", "the SMMU", "an SMMU context", "the GMU's memory", "TrustZone", "the zap shader's header",

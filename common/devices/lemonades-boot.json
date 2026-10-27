@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "target": "lemonades",
+  "sources": {
+    "device": {
+      "url": "https://github.com/LineageOS/android_device_oneplus_lemonades",
+      "commit": "d137be73a7d60aba45e5763764a06ea446940808"
+    },
+    "device_common": {
+      "url": "https://github.com/LineageOS/android_device_oneplus_sm8250-common",
+      "commit": "9883c00ec5893022f1e2a569788c9cef0263bcdb"
+    }
+  },
+  "boot_image": {
+    "header_version": 2,
+    "base": 0,
+    "pagesize": 4096,
+    "partition_size": 100663296,
+    "dtb_location": "header_v2_dtb_section",
+    "separate_dtbo": true
+  }
+}

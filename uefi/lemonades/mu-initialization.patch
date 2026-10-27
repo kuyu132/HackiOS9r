@@ -1,0 +1,72 @@
+--- a/Silicon/Silicium/SiliciumPkg/Drivers/SimpleFbDxe/SimpleFb.c
++++ b/Silicon/Silicium/SiliciumPkg/Drivers/SimpleFbDxe/SimpleFb.c
+@@ -91,14 +91,16 @@
+   OUT UINT32               *Height,
+   OUT UINT32               *ColorDepth)
+ {
+-  EFI_MEMORY_REGION_DESCRIPTOR FrameBufferRegion;
+-
+-  // Locate "Display Reserved" Memory Region
+-  LocateMemoryRegionByName ("Display Reserved", &FrameBufferRegion);
+-  LocateMemoryRegionByName ("Display_Reserved", &FrameBufferRegion);
+-
+-  // Verify Frame Buffer Region
+-  if (!FrameBufferRegion.Address) {
++  EFI_MEMORY_REGION_DESCRIPTOR FrameBufferRegion = {0};
++  EFI_STATUS Status;
++
++  Status = LocateMemoryRegionByName ("Display Reserved", &FrameBufferRegion);
++  if (EFI_ERROR (Status)) {
++    Status = LocateMemoryRegionByName ("Display_Reserved", &FrameBufferRegion);
++  }
++
++  // Failed lookups leave the output descriptor untouched.
++  if (EFI_ERROR (Status) || FrameBufferRegion.Address == 0 || FrameBufferRegion.Length == 0) {
+     DEBUG ((EFI_D_ERROR, "Failed to Locate \"Display Reserved\" Memory Region!\n"));
+     return EFI_NOT_FOUND;
+   }
+@@ -113,6 +115,13 @@
+     DEBUG ((EFI_D_ERROR, "Frame Buffer Resolution is too Small!\n"));
+     DEBUG ((EFI_D_ERROR, "Minimal Supported Resolution = 640x475\n"));
+ 
++    return EFI_UNSUPPORTED;
++  }
++
++  // Avoid overflow and writes outside the reserved framebuffer region.
++  if ((*ColorDepth != 16 && *ColorDepth != 24 && *ColorDepth != 32) ||
++      (UINT64)*Width * *Height > FrameBufferRegion.Length / (*ColorDepth / 8) ||
++      FrameBufferRegion.Address > MAX_UINT64 - FrameBufferRegion.Length) {
+     return EFI_UNSUPPORTED;
+   }
+ 
+@@ -166,7 +175,7 @@
+ 
+   // Set Frame Buffer Range
+   mFrameBuffer.Mode->FrameBufferBase = BaseAddress;
+-  mFrameBuffer.Mode->FrameBufferSize = Width * Height * (ColorDepth / 8);
++  mFrameBuffer.Mode->FrameBufferSize = (UINTN)Width * Height * (ColorDepth / 8);
+ 
+   // Set Mode Info Version
+   mFrameBuffer.Mode->Info->Version = 0;
+@@ -238,18 +247,20 @@
+ FreeMemoryBuffers ()
+ {
+   // Free Buffer
+-  if (mFrameBuffer.Mode->Info != NULL) {
++  if (mFrameBuffer.Mode != NULL && mFrameBuffer.Mode->Info != NULL) {
+     gBS->FreePool (mFrameBuffer.Mode->Info);
+   }
+ 
+   // Free Buffer
+   if (mFrameBuffer.Mode != NULL) {
+     gBS->FreePool (mFrameBuffer.Mode);
++    mFrameBuffer.Mode = NULL;
+   }
+ 
+   // Free Buffer
+   if (FrameBufferConfiguration != NULL) {
+     FreePool (FrameBufferConfiguration);
++    FrameBufferConfiguration = NULL;
+   }
+ }
+ 

@@ -1,0 +1,16 @@
+{
+  "target": "lemonades",
+  "purpose": "offline-contract-fixture",
+  "page_size": 16384,
+  "mpidr": 0,
+  "cntfrq": 24000000,
+  "command_line": "-v cpus=1",
+  "ram_window": {"address": "0xb0400000", "size": "0x10000000"},
+  "allocations": [
+    {"name": "kernel", "address": "0xb0400000", "size": "0x02000000"},
+    {"name": "ramdisk", "address": "0xb2400000", "size": "0x00100000"},
+    {"name": "adt", "address": "0xb2500000", "size": "0x00010000"},
+    {"name": "boot_args", "address": "0xb2510000", "size": "0x00004000"},
+    {"name": "stack", "address": "0xb2514000", "size": "0x00010000"}
+  ]
+}

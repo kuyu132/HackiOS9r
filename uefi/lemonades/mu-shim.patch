@@ -1,0 +1,225 @@
+--- a/Silicon/Qualcomm/QcomPkg/Library/PlatformPeiLib/ShimLoader.c
++++ b/Silicon/Qualcomm/QcomPkg/Library/PlatformPeiLib/ShimLoader.c
+@@ -1,4 +1,5 @@
+ #include <Library/BaseLib.h>
++#include <Library/SynchronizationLib.h>
+ #include <Library/ConfigurationMapLib.h>
+ #include <Library/ConfigurationMapHelperLib.h>
+ #include <Library/MemoryMapHelperLib.h>
+@@ -37,28 +38,79 @@
+   SerialPortSetAttributes
+ };
+ 
+-EFI_STATUS
+-ShimInstallLib (
++// Shim registration is used during serialized early-boot initialization.
++// Names are owned by this loader; interface storage remains owned by callers.
++// Do not use this registry as a concurrent or post-ExitBootServices service.
++#define MAX_SHIM_LIBRARIES 32
++#define SHIM_NAME_POOL_SIZE 1024
++
++typedef struct {
++  CHAR8  *LibName;
++  UINT32  LibVersion;
++  VOID   *LibIntf;
++} SHIM_LIBRARY_ENTRY;
++
++STATIC SHIM_LIBRARY_ENTRY mShimLibraries[MAX_SHIM_LIBRARIES] = {
++  {"UEFI Config Lib", 0x10002, &ConfigLib},
++  {"SerialPort Lib",  0x10001, &SioLib}
++};
++STATIC UINTN mShimLibraryCount = 2;
++STATIC CHAR8 mShimNames[SHIM_NAME_POOL_SIZE];
++STATIC UINTN mShimNamesUsed = 0;
++
++STATIC EFI_STATUS
++ShimInstallLibUnlocked (
+   IN CHAR8  *LibName,
+   IN UINT32  LibVersion,
+   IN VOID   *LibIntf)
+ {
++  UINTN       Length;
++  UINTN       Size;
++  EFI_STATUS  Status;
++
++  if (LibName == NULL || LibIntf == NULL || LibName[0] == '\0') {
++    return EFI_INVALID_PARAMETER;
++  }
++  if (mShimLibraryCount >= MAX_SHIM_LIBRARIES) {
++    return EFI_OUT_OF_RESOURCES;
++  }
++
++  // Bound the scan and reserve the NUL even when length is divisible by four.
++  for (Length = 0; Length < sizeof (mShimNames); Length++) {
++    if (LibName[Length] == '\0') {
++      break;
++    }
++  }
++  if (Length == sizeof (mShimNames)) {
++    return EFI_OUT_OF_RESOURCES;
++  }
++  Size = (Length + 1 + 3) & ~(UINTN)3;
++  if (Size > sizeof (mShimNames) - mShimNamesUsed) {
++    return EFI_OUT_OF_RESOURCES;
++  }
++  Status = AsciiStrCpyS (&mShimNames[mShimNamesUsed], Size, LibName);
++  if (EFI_ERROR (Status)) {
++    return Status;
++  }
++
++  // Append rather than replace: stock lookup prefers the earliest exact
++  // revision, or the earliest compatible revision if no exact match exists.
++  mShimLibraries[mShimLibraryCount].LibName = &mShimNames[mShimNamesUsed];
++  mShimLibraries[mShimLibraryCount].LibVersion = LibVersion;
++  mShimLibraries[mShimLibraryCount].LibIntf = LibIntf;
++  mShimNamesUsed += Size;
++  mShimLibraryCount++;
+   return EFI_SUCCESS;
+ }
+ 
+-EFI_SHIM_LIBRARY_INSTANCE_DATA
+-gShimLibraryInstanceData[] = {
+-  // Library Instance Name, Library Instance Pointer
+-  {"UEFI Config Lib", &ConfigLib},
+-  {"SerialPort Lib",  &SioLib}
+-};
+-
+-EFI_STATUS
+-ShimLoadLib (
++STATIC EFI_STATUS
++ShimLoadLibUnlocked (
+   IN  CHAR8   *LibName,
+   IN  UINT32   LibVersion,
+   OUT VOID   **LibIntf)
+ {
++  VOID *Compatible = NULL;
++
+   if (LibIntf == NULL) {
+     return EFI_INVALID_PARAMETER;
+   }
+@@ -67,18 +119,70 @@
+     return EFI_INVALID_PARAMETER;
+   }
+ 
+-  // Go thru each Shim Library Instance
+-  for (UINT8 i = 0; i < ARRAY_SIZE (gShimLibraryInstanceData); i++) {
+-    // Compare Library Instance Names
+-    if (AsciiStriCmp (LibName, gShimLibraryInstanceData[i].LibName)) {
++  for (UINTN Index = 0; Index < mShimLibraryCount; Index++) {
++    SHIM_LIBRARY_ENTRY *Entry = &mShimLibraries[Index];
++    if (AsciiStriCmp (LibName, Entry->LibName)) {
+       continue;
+     }
+-
+-    // Pass Library Instance
+-    *LibIntf = gShimLibraryInstanceData[i].LibIntf;
+-
+-    return EFI_SUCCESS;
++    if (LibVersion == 0 || Entry->LibVersion == LibVersion) {
++      *LibIntf = Entry->LibIntf;
++      return EFI_SUCCESS;
++    }
++    if (Compatible == NULL && Entry->LibVersion >= LibVersion &&
++        (Entry->LibVersion >> 16) == (LibVersion >> 16)) {
++      Compatible = Entry->LibIntf;
++    }
+   }
+ 
++  // H.30 stock returns EFI_NO_MAPPING (an error, not a success warning) with
++  // the compatible pointer. Callers decide whether to accept this fallback.
++  if (Compatible != NULL) {
++    *LibIntf = Compatible;
++    return EFI_NO_MAPPING;
++  }
+   return EFI_NOT_FOUND;
+ }
++
++// A nested or competing request must not observe a partly appended entry.
++// Fail promptly instead of spinning on a lock held by an interrupted caller.
++STATIC volatile UINT32 mShimRegistryBusy = 0;
++
++EFI_STATUS
++ShimInstallLib (
++  IN CHAR8  *LibName,
++  IN UINT32  LibVersion,
++  IN VOID   *LibIntf)
++{
++  EFI_STATUS Status;
++  if (LibName == NULL || LibIntf == NULL || LibName[0] == '\0') {
++    return EFI_INVALID_PARAMETER;
++  }
++  if (InterlockedCompareExchange32 (&mShimRegistryBusy, 0, 1) != 0) {
++    return EFI_NOT_READY;
++  }
++  Status = ShimInstallLibUnlocked (LibName, LibVersion, LibIntf);
++  InterlockedCompareExchange32 (&mShimRegistryBusy, 1, 0);
++  return Status;
++}
++
++EFI_STATUS
++ShimLoadLib (
++  IN  CHAR8   *LibName,
++  IN  UINT32   LibVersion,
++  OUT VOID   **LibIntf)
++{
++  EFI_STATUS Status;
++  if (LibIntf == NULL) {
++    return EFI_INVALID_PARAMETER;
++  }
++  *LibIntf = NULL;
++  if (LibName == NULL) {
++    return EFI_INVALID_PARAMETER;
++  }
++  if (InterlockedCompareExchange32 (&mShimRegistryBusy, 0, 1) != 0) {
++    return EFI_NOT_READY;
++  }
++  Status = ShimLoadLibUnlocked (LibName, LibVersion, LibIntf);
++  InterlockedCompareExchange32 (&mShimRegistryBusy, 1, 0);
++  return Status;
++}
+--- a/Silicon/Qualcomm/QcomPkg/Library/PlatformPeiLib/ShimLibraries/EFIShim.h
++++ b/Silicon/Qualcomm/QcomPkg/Library/PlatformPeiLib/ShimLibraries/EFIShim.h
+@@ -8,7 +8,13 @@
+   @param[in] LibVersion                    - The Version of the Library Instance.
+   @param[in] LibIntf                       - The Pointer to the Library Instance.
+ 
+-  @return EFI_SUCCESS                      - The Library Instance was Installed Successfully. (Forced)
++  Names are copied; the caller must keep the interface alive. Registration
++  and lookup require serialized early-boot calls, before ExitBootServices.
++
++  @return EFI_SUCCESS                      - The Library Instance was Registered Successfully.
++  @return EFI_INVALID_PARAMETER            - NULL interface/name or empty name.
++  @return EFI_OUT_OF_RESOURCES             - Registry or name storage is full.
++  @return EFI_NOT_READY                    - Nested/concurrent access; registration not performed.
+ **/
+ typedef
+ EFI_STATUS
+@@ -22,12 +28,16 @@
+   This Function gets the Specified Library Instance.
+ 
+   @param[in]  LibName                      - The Name of the Library Instance.
+-  @param[in]  LibVersion                   - The Version of the Library Instance.
++  @param[in]  LibVersion                   - Requested version, or 0 for first named instance.
+   @param[out] LibIntf                      - The Pointer to the Library Instance.
+ 
+   @return EFI_SUCCESS                      - The Library Instance was Successfully Found.
+   @return EFI_INVALID_PARAMETER            - One or more Arguments are NULL.
+-  @return EFI_NOT_FOUND                    - The Specified Library Instance was not Found.
++  @return EFI_NOT_FOUND                    - No compatible named instance; output is NULL.
++  @return EFI_NOT_READY                    - Nested/concurrent access; output is NULL.
++  @return EFI_NO_MAPPING                   - No exact version; output is the first newer
++                                            instance with the same major version. This is
++                                            an error status, matching reviewed H.30 stock.
+ **/
+ typedef
+ EFI_STATUS
+--- a/Silicon/Qualcomm/QcomPkg/Library/PlatformPeiLib/PlatformPeiLib.inf
++++ b/Silicon/Qualcomm/QcomPkg/Library/PlatformPeiLib/PlatformPeiLib.inf
+@@ -27,6 +27,7 @@
+   SiliciumPkg/SiliciumPkg.dec
+ 
+ [LibraryClasses]
++  SynchronizationLib
+   PcdLib
+   DebugLib
+   ConfigurationMapLib

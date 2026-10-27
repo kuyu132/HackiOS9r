@@ -1,0 +1,15 @@
+{
+  "retrieved_date": "2026-10-25",
+  "device": "OnePlus9R_IND",
+  "version": "LE2101_14.0.0.2301(EX01)",
+  "ota_id": "LE2101_11.H.30_3300_202508051814",
+  "discovery_url": "https://yun.daxiaamu.com/OnePlus_Roms/一加9R/OxygenOS%20LE2101_14.0.0.2301(EX01)%20H.30/",
+  "download_url": "https://gauss-componentotamanual.allawnofs.com/remove-566192819778b5d05fe940821765358d/component-ota/25/08/16/b3fc45995d0f4291aa3d9761365d51fc.zip",
+  "zip_bytes": 5628638108,
+  "etag": "\"D30E8246D618245367F4D0E28E41014E-1790\"",
+  "properties_metadata_sha256": "db1cccdd51f7eb9800aa9765c410f56bb0e7ee9e61ccd5f996429f58beeb45e6",
+  "schema": {"url": "https://github.com/ssut/payload-dumper-go", "commit": "c3a50ba8d784764c06143c1f82971cd81a77f9d6", "file": "update_metadata.proto"},
+  "uefiextract": {"url": "https://github.com/LongSoft/UEFITool", "commit": "2e663c49b4ea21a87bb02b2eefdf4e5e11c09b4b"},
+  "inf_templates": {"url": "https://github.com/Project-Silicium/Device-Binaries", "commit": "a1501e0c2e642d6ac0d8f52c85af2a67b75a7799", "scope": "INF text only; no donor binaries staged"},
+  "verification": "Range-read from vendor CDN; OTA metadata CRC, payload metadata hash, operation hashes and selected final partition hashes checked. Full ZIP/payload hash and vendor certificate chain not authenticated."
+}
